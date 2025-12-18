@@ -1,0 +1,32 @@
+# https://rfpgrep.com robots.txt
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://rfpgrep.com/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1
+
+# Disallow admin/internal routes
+Disallow: /dashboard
+Disallow: /editor
+Disallow: /upload
+Disallow: /settings
+Disallow: /analytics
+Disallow: /answers
+Disallow: /branding
+Disallow: /integrations
+Disallow: /compliance
+Disallow: /billing
+
+# Allow important pages
+Allow: /
+Allow: /login
+Allow: /signup
+Allow: /pricing
+Allow: /docs
+Allow: /help
+Allow: /privacy
+Allow: /terms
+Allow: /trial

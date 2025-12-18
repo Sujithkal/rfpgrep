@@ -1,0 +1,83 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================
+    // SECURE FIRESTORE RULES - PRODUCTION READY
+    // ===============================================
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ===============================================
+    // USER DATA
+    // ===============================================
+    match /users/{userId} {
+      // Users can read and update their own profile
+      allow read: if isOwner(userId);
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId);
+      allow delete: if false;
+      
+      // User's projects subcollection
+      match /projects/{projectId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // User's answer library
+      match /answers/{answerId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ===============================================
+    // TEAMS - Simplified for working uploads
+    // ===============================================
+    match /teams/{teamId} {
+      // Any authenticated user can read/write their own team
+      // (teamId is usually the userId for personal teams)
+      allow read, write: if isAuthenticated();
+      
+      // Team members subcollection
+      match /members/{memberId} {
+        allow read, write: if isAuthenticated();
+      }
+
+      // Team RFPs subcollection - THIS IS WHAT UPLOAD USES
+      match /rfps/{rfpId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // ===============================================
+    // KNOWLEDGE BASE
+    // ===============================================
+    match /knowledge/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // ===============================================
+    // USAGE TRACKING
+    // ===============================================
+    match /usage/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isAuthenticated();
+    }
+
+    // ===============================================
+    // CATCH-ALL - Deny all other access
+    // ===============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

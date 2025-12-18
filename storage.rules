@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Team RFP files - Simplified rules for initial access
+    match /teams/{teamId}/rfps/{rfpId}/{allPaths=**} {
+      // Allow read if authenticated
+      allow read: if request.auth != null;
+      
+      // Allow write if authenticated, within size/type limits
+      allow write: if request.auth != null &&
+                      request.resource.size < 50 * 1024 * 1024 && // 50MB limit
+                      request.resource.contentType.matches('application/pdf|application/vnd.openxmlformats-officedocument.*|application/vnd.ms-excel|application/msword');
+    }
+
+    // User Project files (new structure)
+    match /users/{userId}/projects/{projectId}/{allPaths=**} {
+      // Allow read if authenticated
+      allow read: if request.auth != null;
+      
+      // Allow write if authenticated and owner, within size/type limits
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      request.resource.size < 50 * 1024 * 1024 && // 50MB limit
+                      request.resource.contentType.matches('application/pdf|application/vnd.openxmlformats-officedocument.*|application/vnd.ms-excel|application/msword');
+    }
+
+    // User avatars
+    match /users/{userId}/avatar {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+                      request.auth.uid == userId &&
+                      request.resource.size < 5 * 1024 * 1024 && // 5MB limit
+                      request.resource.contentType.matches('image/.*');
+    }
+
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
