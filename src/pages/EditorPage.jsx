@@ -64,6 +64,10 @@ export default function EditorPage() {
     // AI Review cache
     const [aiReviews, setAiReviews] = useState({}); // { questionIndex: { issues, score, badge } }
 
+    // Global search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchOpen, setSearchOpen] = useState(false);
+
     // Presence subscription
     useEffect(() => {
         if (!projectId || !user?.uid) return;
@@ -130,11 +134,23 @@ export default function EditorPage() {
     };
 
     const allQuestions = getAllQuestions();
-    const totalQuestions = allQuestions.length;
+
+    // Filter questions by search query
+    const filteredQuestions = searchQuery.trim()
+        ? allQuestions.filter(q => {
+            const query = searchQuery.toLowerCase();
+            const questionMatch = (q.text || q.question || '').toLowerCase().includes(query);
+            const answerMatch = (q.response || '').toLowerCase().includes(query);
+            const sectionMatch = (q.sectionName || '').toLowerCase().includes(query);
+            return questionMatch || answerMatch || sectionMatch;
+        })
+        : allQuestions;
+
+    const totalQuestions = filteredQuestions.length;
     const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
     const startIndex = (currentPage - 1) * QUESTIONS_PER_PAGE;
     const endIndex = Math.min(startIndex + QUESTIONS_PER_PAGE, totalQuestions);
-    const currentPageQuestions = allQuestions.slice(startIndex, endIndex);
+    const currentPageQuestions = filteredQuestions.slice(startIndex, endIndex);
 
     // AI response generator with real trust score
     const generateMockResponse = (questionText) => {
@@ -217,6 +233,16 @@ export default function EditorPage() {
     // Regenerate single question
     const handleRegenerate = async (globalIndex) => {
         const question = allQuestions[globalIndex];
+
+        // Check if answer is locked (approved or final)
+        const status = question.workflowStatus || question.status;
+        if (status === 'approved' || status === 'final') {
+            const confirmOverwrite = window.confirm(
+                '⚠️ This answer has been approved/finalized.\n\nAre you sure you want to regenerate and overwrite it?'
+            );
+            if (!confirmOverwrite) return;
+        }
+
         setRegeneratingIndex(globalIndex);
 
         try {
@@ -227,6 +253,7 @@ export default function EditorPage() {
                 ...updatedRfp.sections[question.sectionIndex].questions[question.questionIndex],
                 response: mockResult.response,
                 status: 'generated',
+                workflowStatus: 'draft', // Reset to draft after regeneration
                 trustScore: mockResult.trustScore
             };
 
@@ -234,6 +261,7 @@ export default function EditorPage() {
                 await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
                     response: mockResult.response,
                     status: 'generated',
+                    workflowStatus: 'draft',
                     trustScore: mockResult.trustScore
                 });
             }
@@ -500,6 +528,34 @@ export default function EditorPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                            {/* Global Search */}
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Search questions & answers..."
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        setCurrentPage(1); // Reset to first page on search
+                                    }}
+                                    className="w-64 px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => setSearchQuery('')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                    >
+                                        ✕
+                                    </button>
+                                )}
+                            </div>
+
+                            {searchQuery && (
+                                <span className="text-sm text-gray-500">
+                                    {totalQuestions} result{totalQuestions !== 1 ? 's' : ''}
+                                </span>
+                            )}
+
                             {/* Generate All */}
                             <button
                                 onClick={handleGenerateAll}

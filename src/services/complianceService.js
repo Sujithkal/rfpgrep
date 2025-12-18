@@ -9,9 +9,9 @@
 export const COMPLIANCE_STANDARDS = {
     SOC2: {
         id: 'soc2',
-        name: 'SOC 2 Type II',
+        name: 'SOC 2 Aligned',
         icon: '🔐',
-        description: 'Service Organization Control 2',
+        description: 'Security practices aligned with SOC 2 standards',
         requirements: [
             { id: 'soc2_1', name: 'Access Controls', description: 'Logical and physical access controls', met: true },
             { id: 'soc2_2', name: 'System Operations', description: 'Secure system operations and monitoring', met: true },
@@ -22,9 +22,9 @@ export const COMPLIANCE_STANDARDS = {
     },
     ISO27001: {
         id: 'iso27001',
-        name: 'ISO 27001',
+        name: 'ISO 27001 Aligned',
         icon: '🛡️',
-        description: 'Information Security Management',
+        description: 'Security practices aligned with ISO 27001 framework',
         requirements: [
             { id: 'iso_1', name: 'Security Policy', description: 'Information security policies', met: true },
             { id: 'iso_2', name: 'Asset Management', description: 'Asset inventory and classification', met: true },

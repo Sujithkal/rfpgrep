@@ -252,7 +252,7 @@ export default function LandingPage() {
                                         { feature: 'Export to PDF, Word, Excel', us: true, them: true },
                                         { feature: 'Team Role & Permissions', us: true, them: 'Basic' },
                                         { feature: 'Knowledge Base Integration', us: true, them: 'Limited' },
-                                        { feature: 'SOC 2 & ISO 27001 Compliance', us: true, them: 'Varies' },
+                                        { feature: 'SOC 2 & ISO 27001 Aligned Security', us: true, them: 'Varies' },
                                         { feature: 'Gamification & Team Leaderboards', us: true, them: false },
                                         { feature: 'Auto-assignment by Expertise', us: true, them: false },
                                         { feature: 'No AI Model Training on Your Data', us: true, them: false },
@@ -346,11 +346,11 @@ export default function LandingPage() {
                                 Enterprise Security & Compliance
                             </h3>
                             <p className="text-text-secondary leading-relaxed mb-4">
-                                Security is built into every layer of RFPgrep from day one. We're SOC 2
-                                Type II and ISO 27001 certified, with regional data centers to maintain
-                                data sovereignty. And we guarantee that your data never trains our AI
-                                models. Your proposals, knowledge base, and company information remain
-                                100% private.
+                                Security is built into every layer of RFPgrep from day one. Our security
+                                practices are aligned with SOC 2 and ISO 27001 frameworks, with regional
+                                data centers to maintain data sovereignty. We guarantee that your data
+                                never trains our AI models. Your proposals, knowledge base, and company
+                                information remain 100% private.
                             </p>
                             <p className="text-text-secondary leading-relaxed">
                                 Our comprehensive audit logs track every action for compliance requirements,
@@ -373,7 +373,7 @@ export default function LandingPage() {
                         <h2 className="text-5xl font-bold mb-8">Your Data, Your Control</h2>
                         <div className="space-y-6">
                             {[
-                                { icon: '🔐', title: 'ISO 27001 & SOC 2 Certified', desc: 'Enterprise-grade security with regular penetration testing' },
+                                { icon: '🔐', title: 'SOC 2 & ISO 27001 Aligned', desc: 'Enterprise-grade security practices with regular security audits' },
                                 { icon: '🌍', title: 'Regional Data Centers', desc: 'Maintain data sovereignty with dedicated hosting (EU, US, AU)' },
                                 { icon: '🚫', title: 'Zero AI Model Training', desc: 'Your data never trains our AI models - complete privacy guaranteed' },
                                 { icon: '⚡', title: '99.9% Uptime SLA', desc: 'Enterprise-grade reliability with redundant infrastructure' },
