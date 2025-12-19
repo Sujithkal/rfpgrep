@@ -35,28 +35,6 @@ export const PLAN_LIMITS = {
         exportsPerMonth: -1,
         teamMembers: -1,
         storageGB: 100
-    },
-    // AppSumo tiers
-    appsumo_tier1: {
-        projects: 25,
-        aiGenerationsPerMonth: 1000,
-        exportsPerMonth: 100,
-        teamMembers: 5,
-        storageGB: 10
-    },
-    appsumo_tier2: {
-        projects: 100,
-        aiGenerationsPerMonth: 5000,
-        exportsPerMonth: 500,
-        teamMembers: 15,
-        storageGB: 50
-    },
-    appsumo_tier3: {
-        projects: -1,
-        aiGenerationsPerMonth: -1,
-        exportsPerMonth: -1,
-        teamMembers: -1,
-        storageGB: 100
     }
 };
 
