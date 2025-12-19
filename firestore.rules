@@ -32,6 +32,16 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
       
+      // User's standalone RFPs (for migration)
+      match /rfps/{rfpId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // User's team subcollection
+      match /team/{memberId} {
+        allow read, write: if isOwner(userId);
+      }
+      
       // User's answer library
       match /answers/{answerId} {
         allow read, write: if isOwner(userId);
