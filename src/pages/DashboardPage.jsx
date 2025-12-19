@@ -299,12 +299,12 @@ export default function DashboardPage() {
                     </p>
                 </div>
 
-                {/* Usage Counters - AppSumo Ready */}
+                {/* Usage Counters */}
                 <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
                     {[
                         {
                             label: 'Projects',
-                            current: rfps.length,
+                            current: rfps?.length || 0,
                             limit: userData?.plan === 'enterprise' ? '∞' : (userData?.plan === 'professional' ? 50 : userData?.plan === 'starter' ? 10 : 3),
                             icon: '📁'
                         },
@@ -402,63 +402,23 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Usage Stats */}
-                    <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
-                        <div className="flex items-center gap-2.5 mb-4">
-                            <div className="w-9 h-9 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                                <span className="text-green-600 dark:text-green-400 text-lg">📊</span>
+                    {/* Create New Project CTA */}
+                    <Link to="/projects" className="col-span-1 row-span-1 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-5 border border-transparent hover:shadow-xl transition-all group cursor-pointer">
+                        <div className="flex flex-col h-full justify-between">
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
+                                    <span className="text-white text-lg">➕</span>
+                                </div>
+                                <h3 className="text-base font-semibold text-white">Create New Project</h3>
                             </div>
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Usage</h3>
-                            <Link to="/pricing" className="ml-auto text-xs text-indigo-600 hover:underline">
-                                {userData?.plan === 'free' ? 'Upgrade' : PLANS[userData?.plan]?.name || 'Free'}
-                            </Link>
+                            <div className="flex-1 flex flex-col justify-center items-center">
+                                <p className="text-white/80 text-sm text-center mb-3">Start a new RFP project and let AI help you generate responses</p>
+                                <span className="px-4 py-2 bg-white text-indigo-600 rounded-lg font-semibold text-sm group-hover:scale-105 transition-transform">
+                                    Go to Projects →
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex-1 space-y-4">
-                            {/* Projects Usage */}
-                            {(() => {
-                                const projectLimit = checkPlanLimits(userData, 'projects');
-                                const projectPercent = projectLimit.limit === -1 ? 0 : Math.min(100, (projectLimit.current / projectLimit.limit) * 100);
-                                return (
-                                    <div>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600 dark:text-gray-400">Projects</span>
-                                            <span className="font-medium text-gray-900 dark:text-white">
-                                                {projectLimit.limit === -1 ? '∞' : `${projectLimit.current}/${projectLimit.limit}`}
-                                            </span>
-                                        </div>
-                                        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all ${projectPercent > 80 ? 'bg-red-500' : projectPercent > 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                                                style={{ width: projectLimit.limit === -1 ? '10%' : `${projectPercent}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* AI Responses Usage */}
-                            {(() => {
-                                const aiLimit = checkPlanLimits(userData, 'aiResponses');
-                                const aiPercent = aiLimit.limit === -1 ? 0 : Math.min(100, (aiLimit.current / aiLimit.limit) * 100);
-                                return (
-                                    <div>
-                                        <div className="flex justify-between text-sm mb-1">
-                                            <span className="text-gray-600 dark:text-gray-400">AI Responses</span>
-                                            <span className="font-medium text-gray-900 dark:text-white">
-                                                {aiLimit.limit === -1 ? '∞' : `${aiLimit.current}/${aiLimit.limit}`}
-                                            </span>
-                                        </div>
-                                        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all ${aiPercent > 80 ? 'bg-red-500' : aiPercent > 50 ? 'bg-yellow-500' : 'bg-indigo-500'}`}
-                                                style={{ width: aiLimit.limit === -1 ? '10%' : `${aiPercent}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
-                        </div>
-                    </div>
+                    </Link>
 
                     {/* AI Insights */}
                     <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
