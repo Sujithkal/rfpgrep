@@ -17,12 +17,16 @@ export default function SettingsPage() {
     // Local state for toggles - enables instant UI response
     const [gamificationEnabled, setGamificationEnabled] = useState(userData?.settings?.gamificationEnabled !== false);
     const [emailNotifications, setEmailNotifications] = useState(userData?.settings?.emailNotifications || false);
+    const [autoExport, setAutoExport] = useState(userData?.settings?.autoExport || false);
+    const [autoApplyTemplate, setAutoApplyTemplate] = useState(userData?.settings?.autoApplyTemplate || false);
 
     // Sync local state when userData changes
     useEffect(() => {
         if (userData?.settings) {
             setGamificationEnabled(userData.settings.gamificationEnabled !== false);
             setEmailNotifications(userData.settings.emailNotifications || false);
+            setAutoExport(userData.settings.autoExport || false);
+            setAutoApplyTemplate(userData.settings.autoApplyTemplate || false);
         }
     }, [userData]);
 
@@ -339,30 +343,37 @@ export default function SettingsPage() {
                     <div className="bg-white rounded-xl border border-gray-200 p-8">
                         <h2 className="text-xl font-bold text-gray-900 mb-6">⚙️ Automation</h2>
 
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             {/* Auto-export on completion */}
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                 <div>
-                                    <p className="font-medium text-gray-900">Auto-export completed RFPs</p>
+                                    <p className="font-semibold text-gray-900">Auto-export completed RFPs</p>
                                     <p className="text-sm text-gray-500">Automatically download PDF when all questions are answered</p>
                                 </div>
                                 <button
-                                    onClick={async () => {
-                                        await updateUserProfile(user.uid, {
-                                            'settings.autoExport': !userData?.settings?.autoExport
+                                    onClick={() => {
+                                        // Optimistic UI update - instant response
+                                        const newValue = !autoExport;
+                                        setAutoExport(newValue);
+
+                                        // Update Firestore in background
+                                        updateUserProfile(user.uid, {
+                                            'settings.autoExport': newValue
+                                        }).then(() => {
+                                            refreshUserData();
+                                            setSuccess('Setting updated');
+                                            setTimeout(() => setSuccess(''), 2000);
+                                        }).catch(() => {
+                                            // Revert on error
+                                            setAutoExport(!newValue);
+                                            setError('Failed to update setting');
                                         });
-                                        setSuccess('Setting updated');
-                                        setTimeout(() => setSuccess(''), 2000);
                                     }}
-                                    className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.autoExport
-                                        ? 'bg-indigo-600'
-                                        : 'bg-gray-300'
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${autoExport ? 'bg-indigo-600' : 'bg-gray-300'
                                         }`}
                                 >
                                     <span
-                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.autoExport
-                                            ? 'translate-x-8'
-                                            : 'translate-x-1'
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${autoExport ? 'translate-x-6' : 'translate-x-1'
                                             }`}
                                     />
                                 </button>
@@ -371,26 +382,33 @@ export default function SettingsPage() {
                             {/* Auto-apply default template */}
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                 <div>
-                                    <p className="font-medium text-gray-900">Auto-apply default template</p>
+                                    <p className="font-semibold text-gray-900">Auto-apply default template</p>
                                     <p className="text-sm text-gray-500">Apply your default template to new RFPs automatically</p>
                                 </div>
                                 <button
-                                    onClick={async () => {
-                                        await updateUserProfile(user.uid, {
-                                            'settings.autoApplyTemplate': !userData?.settings?.autoApplyTemplate
+                                    onClick={() => {
+                                        // Optimistic UI update - instant response
+                                        const newValue = !autoApplyTemplate;
+                                        setAutoApplyTemplate(newValue);
+
+                                        // Update Firestore in background
+                                        updateUserProfile(user.uid, {
+                                            'settings.autoApplyTemplate': newValue
+                                        }).then(() => {
+                                            refreshUserData();
+                                            setSuccess('Setting updated');
+                                            setTimeout(() => setSuccess(''), 2000);
+                                        }).catch(() => {
+                                            // Revert on error
+                                            setAutoApplyTemplate(!newValue);
+                                            setError('Failed to update setting');
                                         });
-                                        setSuccess('Setting updated');
-                                        setTimeout(() => setSuccess(''), 2000);
                                     }}
-                                    className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.autoApplyTemplate
-                                        ? 'bg-indigo-600'
-                                        : 'bg-gray-300'
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${autoApplyTemplate ? 'bg-indigo-600' : 'bg-gray-300'
                                         }`}
                                 >
                                     <span
-                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.autoApplyTemplate
-                                            ? 'translate-x-8'
-                                            : 'translate-x-1'
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${autoApplyTemplate ? 'translate-x-6' : 'translate-x-1'
                                             }`}
                                     />
                                 </button>
