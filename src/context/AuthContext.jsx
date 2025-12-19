@@ -43,12 +43,25 @@ export const AuthProvider = ({ children }) => {
         return () => unsubscribe();
     }, []);
 
+    // Function to manually refresh user data
+    const refreshUserData = async () => {
+        if (user) {
+            try {
+                const { data } = await getUserData(user.uid);
+                setUserData(data);
+            } catch (err) {
+                console.error('Failed to refresh user data:', err);
+            }
+        }
+    };
+
     const value = {
         user,
         userData,
         loading,
         error,
-        setError
+        setError,
+        refreshUserData
     };
 
     return (

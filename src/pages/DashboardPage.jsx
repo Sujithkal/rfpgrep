@@ -158,7 +158,7 @@ export default function DashboardPage() {
                                 to="/analytics"
                                 className="px-4 py-2 text-sm font-medium rounded-md text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-600"
                             >
-                                📊 Analytics
+                                Analytics
                             </Link>
                             <Link
                                 to="/team"
@@ -224,7 +224,6 @@ export default function DashboardPage() {
                                             onClick={() => setShowProfileDropdown(false)}
                                             className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                                         >
-                                            <span>📊</span>
                                             <span>Analytics</span>
                                         </Link>
                                         <Link

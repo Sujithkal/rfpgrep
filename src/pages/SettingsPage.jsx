@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { updateUserProfile, logout } from '../services/authService';
 
 export default function SettingsPage() {
-    const { user, userData } = useAuth();
+    const { user, userData, refreshUserData } = useAuth();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         displayName: userData?.displayName || '',
@@ -172,6 +172,7 @@ export default function SettingsPage() {
                                             await updateUserProfile(user.uid, {
                                                 'settings.gamificationEnabled': newValue
                                             });
+                                            await refreshUserData();
                                             setSuccess(newValue ? 'Gamification enabled!' : 'Gamification disabled');
                                             setTimeout(() => setSuccess(''), 3000);
                                         } catch (err) {
@@ -205,6 +206,7 @@ export default function SettingsPage() {
                                             await updateUserProfile(user.uid, {
                                                 'settings.emailNotifications': newValue
                                             });
+                                            await refreshUserData();
                                             setSuccess(newValue ? 'Email notifications enabled!' : 'Email notifications disabled');
                                             setTimeout(() => setSuccess(''), 3000);
                                         } catch (err) {
