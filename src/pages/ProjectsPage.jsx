@@ -251,7 +251,7 @@ export default function ProjectsPage() {
                             return (
                                 <div
                                     key={project.id}
-                                    onClick={() => navigate(`/project?projectId=${project.id}`)}
+                                    onClick={() => navigate(`/editor?projectId=${project.id}`)}
                                     className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
                                 >
                                     {/* Header */}
