@@ -880,7 +880,7 @@ export default function EditorPage() {
                                                             'bg-red-50 border-red-200'
                                                     }`}>
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-xs font-medium flex items-center gap-1">
+                                                        <span className="text-xs font-medium text-gray-900 flex items-center gap-1">
                                                             {review.badge.icon} AI Review: {review.badge.label} ({review.score}%)
                                                         </span>
                                                     </div>
