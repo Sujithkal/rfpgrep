@@ -379,7 +379,7 @@ export default function DashboardPage() {
                             ) : rfps.length > 0 ? (
                                 rfps.slice(0, 3).map((rfp) => (
                                     <div key={rfp.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer border border-gray-100 dark:border-gray-600 group">
-                                        <Link to={`/editor?rfpId=${rfp.id}`} className="flex-1 min-w-0">
+                                        <Link to={`/editor?projectId=${rfp.id}`} className="flex-1 min-w-0">
                                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{rfp.name}</p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                                 {rfp.totalQuestions || 0} questions • {rfp.fileType?.toUpperCase()}
@@ -491,7 +491,7 @@ export default function DashboardPage() {
                                     })
                                     .slice(0, 2)
                                     .map((rfp, i) => (
-                                        <Link key={rfp.id} to={`/editor?rfpId=${rfp.id}`}>
+                                        <Link key={rfp.id} to={`/editor?projectId=${rfp.id}`}>
                                             <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors cursor-pointer text-sm">
                                                 <span>{i === 0 ? '🔥' : '⏰'}</span>
                                                 <div className="flex-1 min-w-0">
@@ -529,7 +529,7 @@ export default function DashboardPage() {
                                 </div>
                             ) : (
                                 rfps.filter(r => r.status === 'ready' || r.status === 'processing').slice(0, 3).map((rfp, idx) => (
-                                    <Link key={rfp.id} to={`/editor?rfpId=${rfp.id}`}>
+                                    <Link key={rfp.id} to={`/editor?projectId=${rfp.id}`}>
                                         <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors cursor-pointer text-sm">
                                             <span>{rfp.status === 'processing' ? '⏳' : '✏️'}</span>
                                             <span className="truncate text-gray-700 dark:text-gray-300">{rfp.name}</span>
