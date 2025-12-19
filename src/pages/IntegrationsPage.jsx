@@ -428,45 +428,30 @@ export default function IntegrationsPage() {
                 {/* CRM/ERP Tab */}
                 {activeTab === 'crm' && (
                     <div className="space-y-6">
-                        <div className="bg-white rounded-xl p-6 border border-gray-200">
-                            <h3 className="font-semibold text-gray-900 mb-2">📊 CRM/ERP Integrations</h3>
-                            <p className="text-gray-600 text-sm mb-6">
-                                Export your RFP data directly to your CRM or ERP system.
+                        {/* CSV Export - Main Feature */}
+                        <div className="bg-white rounded-xl p-8 border border-gray-200">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-2xl">
+                                    📊
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-xl text-gray-900">Export to Any CRM</h3>
+                                    <p className="text-gray-500 text-sm">Universal CSV format compatible with all CRM systems</p>
+                                </div>
+                            </div>
+
+                            <p className="text-gray-600 mb-6">
+                                Download all your RFP data as a CSV file that can be imported into Salesforce, HubSpot, Pipedrive, Zoho, Microsoft Dynamics, or any other CRM/ERP system.
                             </p>
 
-                            <div className="grid md:grid-cols-2 gap-4">
-                                {[
-                                    { id: 'salesforce', name: 'Salesforce', icon: '☁️', color: 'bg-blue-50 border-blue-200', desc: 'Sync opportunities' },
-                                    { id: 'hubspot', name: 'HubSpot', icon: '🟠', color: 'bg-orange-50 border-orange-200', desc: 'Sync deals' },
-                                    { id: 'dynamics', name: 'Microsoft Dynamics', icon: '🔷', color: 'bg-indigo-50 border-indigo-200', desc: 'Export to D365' },
-                                    { id: 'pipedrive', name: 'Pipedrive', icon: '🟢', color: 'bg-green-50 border-green-200', desc: 'Sync deals' },
-                                    { id: 'zoho', name: 'Zoho CRM', icon: '🔴', color: 'bg-red-50 border-red-200', desc: 'Export potentials' },
-                                    { id: 'sap', name: 'SAP ERP', icon: '🏢', color: 'bg-gray-50 border-gray-200', desc: 'Project export' },
-                                ].map(crm => (
-                                    <div key={crm.id} className={`p-4 rounded-lg border ${crm.color} dark:bg-gray-800 dark:border-gray-700 flex items-center justify-between`}>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-2xl">{crm.icon}</span>
-                                            <div>
-                                                <p className="font-medium text-gray-900 dark:text-white">{crm.name}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">{crm.desc}</p>
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => toast('Coming soon! This integration is on our roadmap.', { icon: '🚧' })}
-                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
-                                        >
-                                            Connect
-                                        </button>
-                                    </div>
+                            <div className="flex flex-wrap gap-3 mb-6">
+                                {['Salesforce', 'HubSpot', 'Pipedrive', 'Zoho CRM', 'Dynamics 365', 'SAP'].map(crm => (
+                                    <span key={crm} className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">
+                                        ✓ {crm}
+                                    </span>
                                 ))}
                             </div>
-                        </div>
 
-                        <div className="bg-white rounded-xl p-6 border border-gray-200">
-                            <h3 className="font-semibold text-gray-900 mb-4">📥 Quick Export</h3>
-                            <p className="text-gray-600 text-sm mb-4">
-                                Download all RFP data as CSV for manual import into any CRM.
-                            </p>
                             <button
                                 onClick={async () => {
                                     const { downloadCRMCSV } = await import('../services/crmExportService');
@@ -475,19 +460,42 @@ export default function IntegrationsPage() {
                                     downloadCRMCSV(projects, `rfpgrep_export_${new Date().toISOString().split('T')[0]}.csv`);
                                     toast.success('CSV exported successfully!');
                                 }}
-                                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:scale-105 transition-transform"
+                                className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl font-bold text-lg hover:scale-105 transition-transform shadow-lg"
                             >
                                 📥 Export All RFPs to CSV
                             </button>
                         </div>
 
+                        {/* What's Included */}
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <h4 className="font-semibold text-gray-900 mb-4">📋 Export Includes:</h4>
+                            <div className="grid md:grid-cols-2 gap-3">
+                                {[
+                                    'Project name & description',
+                                    'All questions & answers',
+                                    'AI confidence scores',
+                                    'Completion status',
+                                    'Due dates',
+                                    'Win/Loss outcome',
+                                    'Created & updated dates',
+                                    'Section breakdowns'
+                                ].map((item, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-gray-600">
+                                        <span className="text-green-500">✓</span>
+                                        <span>{item}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Enterprise Note */}
                         <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200">
-                            <h4 className="font-semibold text-gray-900 mb-2">🚀 Need a custom integration?</h4>
-                            <p className="text-gray-600 text-sm mb-4">
-                                Our Enterprise plan includes custom API integrations and dedicated support for your specific CRM/ERP needs.
+                            <h4 className="font-semibold text-gray-900 mb-2">🔗 Need Direct API Integration?</h4>
+                            <p className="text-gray-600 text-sm mb-3">
+                                Enterprise customers can get custom API integrations with automatic sync to your CRM/ERP.
                             </p>
-                            <Link to="/contact" className="text-indigo-600 font-medium hover:text-indigo-700">
-                                Contact Sales →
+                            <Link to="/pricing" className="text-indigo-600 font-medium hover:text-indigo-700">
+                                View Enterprise Plan →
                             </Link>
                         </div>
                     </div>
