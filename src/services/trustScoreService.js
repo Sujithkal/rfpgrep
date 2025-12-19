@@ -11,6 +11,10 @@
  * @returns {Object} - { score: number, breakdown: object, color: string }
  */
 export const calculateTrustScore = (response, question, knowledgeMatches = []) => {
+    // Handle undefined/null inputs
+    const safeResponse = response || '';
+    const safeQuestion = question || '';
+
     const breakdown = {
         lengthScore: 0,
         keywordCoverage: 0,
@@ -21,7 +25,7 @@ export const calculateTrustScore = (response, question, knowledgeMatches = []) =
 
     // 1. Length Score (0-20 points)
     // Good responses are typically 100-500 words
-    const wordCount = response.split(/\s+/).length;
+    const wordCount = safeResponse.split(/\s+/).filter(w => w).length;
     if (wordCount < 20) {
         breakdown.lengthScore = 5;
     } else if (wordCount < 50) {
@@ -36,12 +40,12 @@ export const calculateTrustScore = (response, question, knowledgeMatches = []) =
 
     // 2. Keyword Coverage (0-25 points)
     // Check how many question keywords appear in response
-    const questionWords = question.toLowerCase()
+    const questionWords = safeQuestion.toLowerCase()
         .replace(/[^\w\s]/g, '')
         .split(/\s+/)
         .filter(word => word.length > 3);
 
-    const responseWords = response.toLowerCase();
+    const responseWords = safeResponse.toLowerCase();
     const matchedKeywords = questionWords.filter(word => responseWords.includes(word));
     const keywordRatio = questionWords.length > 0
         ? matchedKeywords.length / questionWords.length
@@ -62,9 +66,9 @@ export const calculateTrustScore = (response, question, knowledgeMatches = []) =
 
     // 4. Structure Score (0-15 points)
     // Check for good formatting and structure
-    const hasParagraphs = response.split('\n\n').length > 1;
-    const hasBullets = /[•\-\*]/.test(response) || /^\d+\./m.test(response);
-    const hasProperSentences = /[.!?]/.test(response);
+    const hasParagraphs = safeResponse.split('\n\n').length > 1;
+    const hasBullets = /[•\-\*]/.test(safeResponse) || /^\d+\./m.test(safeResponse);
+    const hasProperSentences = /[.!?]/.test(safeResponse);
 
     breakdown.structureScore = 0;
     if (hasProperSentences) breakdown.structureScore += 5;
@@ -73,10 +77,10 @@ export const calculateTrustScore = (response, question, knowledgeMatches = []) =
 
     // 5. Specificity Score (0-15 points)
     // Check for specific details like numbers, dates, percentages
-    const hasNumbers = /\d+/.test(response);
-    const hasPercentages = /%/.test(response);
-    const hasMetrics = /\b(years?|months?|days?|hours?|million|thousand|clients?|projects?)\b/i.test(response);
-    const hasCompanySpecific = /\b(our|we|company|team|organization)\b/i.test(response);
+    const hasNumbers = /\d+/.test(safeResponse);
+    const hasPercentages = /%/.test(safeResponse);
+    const hasMetrics = /\b(years?|months?|days?|hours?|million|thousand|clients?|projects?)\b/i.test(safeResponse);
+    const hasCompanySpecific = /\b(our|we|company|team|organization)\b/i.test(safeResponse);
 
     breakdown.specificityScore = 0;
     if (hasNumbers) breakdown.specificityScore += 4;
