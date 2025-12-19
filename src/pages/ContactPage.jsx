@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { db } from '../services/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 export default function ContactPage() {
@@ -15,12 +17,22 @@ export default function ContactPage() {
         e.preventDefault();
         setSubmitting(true);
 
-        // Simulate form submission
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        try {
+            // Save to Firestore
+            await addDoc(collection(db, 'contactSubmissions'), {
+                ...formData,
+                createdAt: serverTimestamp(),
+                status: 'new'
+            });
 
-        toast.success('Message sent! We\'ll get back to you soon.');
-        setFormData({ name: '', email: '', subject: '', message: '' });
-        setSubmitting(false);
+            toast.success('Message sent! We\'ll get back to you within 24 hours.');
+            setFormData({ name: '', email: '', subject: '', message: '' });
+        } catch (error) {
+            console.error('Error submitting form:', error);
+            toast.error('Failed to send message. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -121,8 +133,8 @@ export default function ContactPage() {
                                     <span className="text-2xl">📧</span>
                                     <div>
                                         <h3 className="font-semibold text-gray-900">Email</h3>
-                                        <p className="text-gray-600">support@responseai.com</p>
-                                        <p className="text-gray-600">sales@responseai.com</p>
+                                        <p className="text-gray-600">support@rfpgrep.com</p>
+                                        <p className="text-gray-600">sales@rfpgrep.com</p>
                                     </div>
                                 </div>
 
