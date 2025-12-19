@@ -98,21 +98,22 @@ export default function EditorPage() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                console.log('EditorPage: Fetching data...', { projectId, rfpId, user: user?.uid });
+                console.log('EditorPage: URL params:', { projectId, rfpId });
+                console.log('EditorPage: User info:', { uid: user?.uid, teamId: userData?.teamId });
 
                 if (projectId && user?.uid) {
-                    console.log('EditorPage: Loading project...', projectId);
+                    console.log('EditorPage: USING PROJECT PATH - Loading project:', projectId);
                     const projectData = await getProject(user.uid, projectId);
-                    console.log('EditorPage: Project loaded', projectData);
+                    console.log('EditorPage: Project loaded successfully', projectData?.name);
                     setRfp(projectData);
                 } else if (rfpId && userData?.teamId) {
-                    console.log('EditorPage: Loading RFP...', rfpId);
+                    console.log('EditorPage: USING RFP PATH - Loading RFP:', rfpId);
                     const result = await getRFPDetail(userData.teamId, rfpId);
                     if (result.success) {
                         setRfp(result.data);
                     }
                 } else {
-                    console.log('EditorPage: No projectId or rfpId provided');
+                    console.log('EditorPage: NO VALID ID - projectId:', projectId, 'rfpId:', rfpId);
                 }
             } catch (error) {
                 console.error('EditorPage: Failed to fetch data:', error);
