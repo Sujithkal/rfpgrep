@@ -179,14 +179,14 @@ export default function SettingsPage() {
                                         }
                                     }}
                                     className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.gamificationEnabled !== false
-                                            ? 'bg-indigo-600'
-                                            : 'bg-gray-300'
+                                        ? 'bg-indigo-600'
+                                        : 'bg-gray-300'
                                         }`}
                                 >
                                     <span
                                         className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.gamificationEnabled !== false
-                                                ? 'translate-x-8'
-                                                : 'translate-x-1'
+                                            ? 'translate-x-8'
+                                            : 'translate-x-1'
                                             }`}
                                     />
                                 </button>
@@ -212,14 +212,14 @@ export default function SettingsPage() {
                                         }
                                     }}
                                     className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.emailNotifications
-                                            ? 'bg-indigo-600'
-                                            : 'bg-gray-300'
+                                        ? 'bg-indigo-600'
+                                        : 'bg-gray-300'
                                         }`}
                                 >
                                     <span
                                         className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.emailNotifications
-                                                ? 'translate-x-8'
-                                                : 'translate-x-1'
+                                            ? 'translate-x-8'
+                                            : 'translate-x-1'
                                             }`}
                                     />
                                 </button>
@@ -284,10 +284,15 @@ export default function SettingsPage() {
                                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-24 resize-none"
                                     id="newPromptInstructions"
                                 />
+                                <label className="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" id="shareWithTeam" className="w-4 h-4 text-indigo-600 rounded" />
+                                    Share with my team
+                                </label>
                                 <button
                                     onClick={async () => {
                                         const name = document.getElementById('newPromptName').value.trim();
                                         const instructions = document.getElementById('newPromptInstructions').value.trim();
+                                        const shareWithTeam = document.getElementById('shareWithTeam').checked;
                                         if (!name || !instructions) {
                                             setError('Please fill in both fields');
                                             return;
@@ -298,16 +303,80 @@ export default function SettingsPage() {
                                             return;
                                         }
                                         await updateUserProfile(user.uid, {
-                                            'settings.customPrompts': [...existing, { name, instructions, createdAt: new Date() }]
+                                            'settings.customPrompts': [...existing, { name, instructions, shareWithTeam, createdAt: new Date() }]
                                         });
                                         document.getElementById('newPromptName').value = '';
                                         document.getElementById('newPromptInstructions').value = '';
-                                        setSuccess('Custom prompt added!');
+                                        document.getElementById('shareWithTeam').checked = false;
+                                        setSuccess(shareWithTeam ? 'Custom prompt added and shared with team!' : 'Custom prompt added!');
                                         setTimeout(() => setSuccess(''), 3000);
                                     }}
                                     className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:scale-105 transition-transform"
                                 >
                                     + Add Prompt
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Automation Settings */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-8">
+                        <h2 className="text-xl font-bold text-gray-900 mb-6">⚙️ Automation</h2>
+
+                        <div className="space-y-4">
+                            {/* Auto-export on completion */}
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p className="font-medium text-gray-900">Auto-export completed RFPs</p>
+                                    <p className="text-sm text-gray-500">Automatically download PDF when all questions are answered</p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        await updateUserProfile(user.uid, {
+                                            'settings.autoExport': !userData?.settings?.autoExport
+                                        });
+                                        setSuccess('Setting updated');
+                                        setTimeout(() => setSuccess(''), 2000);
+                                    }}
+                                    className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.autoExport
+                                            ? 'bg-indigo-600'
+                                            : 'bg-gray-300'
+                                        }`}
+                                >
+                                    <span
+                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.autoExport
+                                                ? 'translate-x-8'
+                                                : 'translate-x-1'
+                                            }`}
+                                    />
+                                </button>
+                            </div>
+
+                            {/* Auto-apply default template */}
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p className="font-medium text-gray-900">Auto-apply default template</p>
+                                    <p className="text-sm text-gray-500">Apply your default template to new RFPs automatically</p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        await updateUserProfile(user.uid, {
+                                            'settings.autoApplyTemplate': !userData?.settings?.autoApplyTemplate
+                                        });
+                                        setSuccess('Setting updated');
+                                        setTimeout(() => setSuccess(''), 2000);
+                                    }}
+                                    className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.autoApplyTemplate
+                                            ? 'bg-indigo-600'
+                                            : 'bg-gray-300'
+                                        }`}
+                                >
+                                    <span
+                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.autoApplyTemplate
+                                                ? 'translate-x-8'
+                                                : 'translate-x-1'
+                                            }`}
+                                    />
                                 </button>
                             </div>
                         </div>
