@@ -178,18 +178,16 @@ export default function SettingsPage() {
                                             setError('Failed to update setting');
                                         }
                                     }}
-                                    className={`relative w-14 h-7 rounded-full transition-colors ${
-                                        userData?.settings?.gamificationEnabled !== false 
-                                            ? 'bg-indigo-600' 
+                                    className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.gamificationEnabled !== false
+                                            ? 'bg-indigo-600'
                                             : 'bg-gray-300'
-                                    }`}
+                                        }`}
                                 >
-                                    <span 
-                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                                            userData?.settings?.gamificationEnabled !== false 
-                                                ? 'translate-x-8' 
+                                    <span
+                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.gamificationEnabled !== false
+                                                ? 'translate-x-8'
                                                 : 'translate-x-1'
-                                        }`} 
+                                            }`}
                                     />
                                 </button>
                             </div>
@@ -213,25 +211,107 @@ export default function SettingsPage() {
                                             setError('Failed to update setting');
                                         }
                                     }}
-                                    className={`relative w-14 h-7 rounded-full transition-colors ${
-                                        userData?.settings?.emailNotifications 
-                                            ? 'bg-indigo-600' 
+                                    className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.emailNotifications
+                                            ? 'bg-indigo-600'
                                             : 'bg-gray-300'
-                                    }`}
+                                        }`}
                                 >
-                                    <span 
-                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                                            userData?.settings?.emailNotifications 
-                                                ? 'translate-x-8' 
+                                    <span
+                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.emailNotifications
+                                                ? 'translate-x-8'
                                                 : 'translate-x-1'
-                                        }`} 
+                                            }`}
                                     />
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Danger Zone */}
+                    {/* Custom AI Prompts */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-8">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-gray-900">🤖 Custom AI Prompts</h2>
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">Pro Feature</span>
+                        </div>
+
+                        <p className="text-sm text-gray-600 mb-6">
+                            Create custom AI actions that appear in the editor dropdown. Define your own prompts for specialized response styles.
+                        </p>
+
+                        {/* Existing Custom Prompts */}
+                        <div className="space-y-3 mb-6">
+                            {(userData?.settings?.customPrompts || []).length > 0 ? (
+                                userData.settings.customPrompts.map((prompt, i) => (
+                                    <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                        <div>
+                                            <p className="font-medium text-gray-900">{prompt.name}</p>
+                                            <p className="text-sm text-gray-500 truncate max-w-md">{prompt.instructions}</p>
+                                        </div>
+                                        <button
+                                            onClick={async () => {
+                                                const updated = userData.settings.customPrompts.filter((_, idx) => idx !== i);
+                                                await updateUserProfile(user.uid, { 'settings.customPrompts': updated });
+                                                setSuccess('Prompt deleted');
+                                                setTimeout(() => setSuccess(''), 3000);
+                                            }}
+                                            className="text-red-500 hover:text-red-700 p-2"
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                                    <span className="text-3xl mb-2 block">✨</span>
+                                    <p className="text-gray-500">No custom prompts yet</p>
+                                    <p className="text-sm text-gray-400">Add your first one below</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Add New Prompt */}
+                        <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                            <h3 className="font-semibold text-gray-900 mb-3">Add New Prompt</h3>
+                            <div className="space-y-3">
+                                <input
+                                    type="text"
+                                    placeholder="Prompt name (e.g., 'Make Concise')"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    id="newPromptName"
+                                />
+                                <textarea
+                                    placeholder="Instructions for AI (e.g., 'Rewrite this response to be under 100 words while keeping key points')"
+                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-24 resize-none"
+                                    id="newPromptInstructions"
+                                />
+                                <button
+                                    onClick={async () => {
+                                        const name = document.getElementById('newPromptName').value.trim();
+                                        const instructions = document.getElementById('newPromptInstructions').value.trim();
+                                        if (!name || !instructions) {
+                                            setError('Please fill in both fields');
+                                            return;
+                                        }
+                                        const existing = userData?.settings?.customPrompts || [];
+                                        if (existing.length >= 5) {
+                                            setError('Maximum 5 custom prompts allowed');
+                                            return;
+                                        }
+                                        await updateUserProfile(user.uid, {
+                                            'settings.customPrompts': [...existing, { name, instructions, createdAt: new Date() }]
+                                        });
+                                        document.getElementById('newPromptName').value = '';
+                                        document.getElementById('newPromptInstructions').value = '';
+                                        setSuccess('Custom prompt added!');
+                                        setTimeout(() => setSuccess(''), 3000);
+                                    }}
+                                    className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:scale-105 transition-transform"
+                                >
+                                    + Add Prompt
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <div className="bg-white rounded-xl border-2 border-red-200 p-8">
                         <h2 className="text-xl font-bold text-red-600 mb-6">Danger Zone</h2>
 
