@@ -10,6 +10,7 @@ import { subscribeToPresence, updatePresence, removePresence, formatPresenceList
 import { reviewAnswer, getQualityScore, getQualityBadge } from '../services/aiReviewService';
 import { translateText, LANGUAGES } from '../services/translationService';
 import { getQuestionComments } from '../services/commentService';
+import { incrementUsage } from '../services/usageService';
 import VersionHistoryModal from '../components/VersionHistoryModal';
 import CommentThread from '../components/CommentThread';
 
@@ -276,6 +277,8 @@ export default function EditorPage() {
 
             if (projectId && user?.uid) {
                 await batchUpdateQuestions(user.uid, projectId, updates);
+                // Track AI usage for all generated responses
+                await incrementUsage(user.uid, 'aiResponse', questionsToGenerate.length);
             }
 
             setRfp(updatedRfp);
@@ -322,6 +325,8 @@ export default function EditorPage() {
                     workflowStatus: 'draft',
                     trustScore: mockResult.trustScore
                 });
+                // Track AI usage
+                await incrementUsage(user.uid, 'aiResponse');
             }
 
             setRfp(updatedRfp);
@@ -632,7 +637,11 @@ export default function EditorPage() {
 
                             {/* Export PDF */}
                             <button
-                                onClick={() => { exportToPDF(rfp); alert('PDF downloaded!'); }}
+                                onClick={async () => {
+                                    exportToPDF(rfp);
+                                    if (user?.uid) await incrementUsage(user.uid, 'export');
+                                    alert('PDF downloaded!');
+                                }}
                                 className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
                             >
                                 📄 PDF
@@ -640,7 +649,11 @@ export default function EditorPage() {
 
                             {/* Export Word */}
                             <button
-                                onClick={async () => { await exportToWord(rfp); alert('Word downloaded!'); }}
+                                onClick={async () => {
+                                    await exportToWord(rfp);
+                                    if (user?.uid) await incrementUsage(user.uid, 'export');
+                                    alert('Word downloaded!');
+                                }}
                                 className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
                             >
                                 📝 Word

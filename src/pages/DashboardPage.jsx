@@ -319,13 +319,13 @@ export default function DashboardPage() {
                         },
                         {
                             label: 'AI Generations',
-                            current: userData?.usage?.[new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')]?.aiGenerations || 0,
+                            current: userData?.usage?.aiResponsesThisMonth || 0,
                             limit: userData?.plan === 'enterprise' ? '∞' : (userData?.plan === 'professional' ? 2000 : userData?.plan === 'starter' ? 500 : 50),
                             icon: '🤖'
                         },
                         {
                             label: 'Exports',
-                            current: userData?.usage?.[new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')]?.exports || 0,
+                            current: userData?.usage?.exportsThisMonth || 0,
                             limit: userData?.plan === 'enterprise' ? '∞' : (userData?.plan === 'professional' ? 200 : userData?.plan === 'starter' ? 50 : 10),
                             icon: '📤'
                         },

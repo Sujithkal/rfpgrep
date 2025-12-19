@@ -131,6 +131,11 @@ export const incrementUsage = async (userId, actionType, amount = 1) => {
                     'usage.aiResponsesThisMonth': increment(amount)
                 });
                 break;
+            case 'export':
+                await updateDoc(userRef, {
+                    'usage.exportsThisMonth': increment(amount)
+                });
+                break;
             case 'storage':
                 await updateDoc(userRef, {
                     'usage.storageUsed': increment(amount)
