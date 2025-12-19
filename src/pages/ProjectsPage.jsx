@@ -361,14 +361,45 @@ export default function ProjectsPage() {
                                                     key={value}
                                                     onClick={(e) => handleOutcomeChange(e, project.id, project.outcome === value ? null : value)}
                                                     className={`px-2 py-1 text-xs rounded-md border font-medium transition-all ${project.outcome === value
-                                                            ? getOutcomeColor(value)
-                                                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                                                        ? getOutcomeColor(value)
+                                                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
                                                         }`}
                                                 >
                                                     {label}
                                                 </button>
                                             ))}
                                         </div>
+                                    </div>
+
+                                    {/* Quick Actions */}
+                                    <div className="px-6 py-2 border-t border-gray-100 flex items-center gap-2">
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                const { generateMeetingNotes } = await import('../services/meetingNotesService');
+                                                const result = await generateMeetingNotes(project, 'progress');
+                                                if (result.success) {
+                                                    // Create a blob and download
+                                                    const blob = new Blob([result.notes], { type: 'text/markdown' });
+                                                    const url = URL.createObjectURL(blob);
+                                                    const a = document.createElement('a');
+                                                    a.href = url;
+                                                    a.download = `${project.name.replace(/\s+/g, '_')}_meeting_notes.md`;
+                                                    a.click();
+                                                    URL.revokeObjectURL(url);
+                                                }
+                                            }}
+                                            className="flex-1 py-1.5 px-2 text-xs bg-purple-50 text-purple-700 rounded-md hover:bg-purple-100 transition-colors font-medium"
+                                        >
+                                            📝 Meeting Notes
+                                        </button>
+                                        <Link
+                                            to={`/editor?projectId=${project.id}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="flex-1 py-1.5 px-2 text-xs bg-indigo-50 text-indigo-700 rounded-md hover:bg-indigo-100 transition-colors font-medium text-center"
+                                        >
+                                            ✏️ Edit RFP
+                                        </Link>
                                     </div>
                                 </div>
                             );

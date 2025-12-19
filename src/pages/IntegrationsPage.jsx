@@ -148,6 +148,13 @@ export default function IntegrationsPage() {
                     >
                         👥 Teams
                     </button>
+                    <button
+                        onClick={() => setActiveTab('crm')}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'crm' ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:bg-gray-100'
+                            }`}
+                    >
+                        📊 CRM/ERP
+                    </button>
                     {userData?.plan === 'enterprise' && (
                         <button
                             onClick={() => setActiveTab('webhooks')}
@@ -414,6 +421,71 @@ export default function IntegrationsPage() {
   }
 }`}
                             </pre>
+                        </div>
+                    </div>
+                )}
+
+                {/* CRM/ERP Tab */}
+                {activeTab === 'crm' && (
+                    <div className="space-y-6">
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <h3 className="font-semibold text-gray-900 mb-2">📊 CRM/ERP Integrations</h3>
+                            <p className="text-gray-600 text-sm mb-6">
+                                Export your RFP data directly to your CRM or ERP system.
+                            </p>
+
+                            <div className="grid md:grid-cols-2 gap-4">
+                                {[
+                                    { id: 'salesforce', name: 'Salesforce', icon: '☁️', color: 'bg-blue-50 border-blue-200', desc: 'Sync opportunities' },
+                                    { id: 'hubspot', name: 'HubSpot', icon: '🟠', color: 'bg-orange-50 border-orange-200', desc: 'Sync deals' },
+                                    { id: 'dynamics', name: 'Microsoft Dynamics', icon: '🔷', color: 'bg-indigo-50 border-indigo-200', desc: 'Export to D365' },
+                                    { id: 'pipedrive', name: 'Pipedrive', icon: '🟢', color: 'bg-green-50 border-green-200', desc: 'Sync deals' },
+                                    { id: 'zoho', name: 'Zoho CRM', icon: '🔴', color: 'bg-red-50 border-red-200', desc: 'Export potentials' },
+                                    { id: 'sap', name: 'SAP ERP', icon: '🏢', color: 'bg-gray-50 border-gray-200', desc: 'Project export' },
+                                ].map(crm => (
+                                    <div key={crm.id} className={`p-4 rounded-lg border ${crm.color} flex items-center justify-between`}>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">{crm.icon}</span>
+                                            <div>
+                                                <p className="font-medium text-gray-900">{crm.name}</p>
+                                                <p className="text-xs text-gray-500">{crm.desc}</p>
+                                            </div>
+                                        </div>
+                                        <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                                            Connect
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl p-6 border border-gray-200">
+                            <h3 className="font-semibold text-gray-900 mb-4">📥 Quick Export</h3>
+                            <p className="text-gray-600 text-sm mb-4">
+                                Download all RFP data as CSV for manual import into any CRM.
+                            </p>
+                            <button
+                                onClick={async () => {
+                                    const { downloadCRMCSV } = await import('../services/crmExportService');
+                                    const { getProjects } = await import('../services/projectService');
+                                    const projects = await getProjects(user.uid);
+                                    downloadCRMCSV(projects, `rfpgrep_export_${new Date().toISOString().split('T')[0]}.csv`);
+                                    toast.success('CSV exported successfully!');
+                                }}
+                                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:scale-105 transition-transform"
+                            >
+                                📥 Export All RFPs to CSV
+                            </button>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200">
+                            <h4 className="font-semibold text-gray-900 mb-2">🚀 Need a custom integration?</h4>
+                            <p className="text-gray-600 text-sm mb-4">
+                                Our Enterprise plan includes custom API integrations and dedicated support for your specific CRM/ERP needs.
+                            </p>
+                            <Link to="/contact" className="text-indigo-600 font-medium hover:text-indigo-700">
+                                Contact Sales →
+                            </Link>
                         </div>
                     </div>
                 )}
