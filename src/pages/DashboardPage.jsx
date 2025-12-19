@@ -688,26 +688,7 @@ export default function DashboardPage() {
                         </div>
                     )}
 
-                    {/* Quick Actions */}
-                    <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
-                        <div className="flex items-center gap-2.5 mb-4">
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
-                        </div>
-                        <div className="flex-1 flex flex-col gap-2.5">
-                            <Link to="/upload">
-                                <button className="w-full flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold hover:scale-105 transition-transform">
-                                    <span>New RFP</span>
-                                    <span>→</span>
-                                </button>
-                            </Link>
-                            <Link to="/upload">
-                                <button className="w-full flex items-center justify-between p-3 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm font-medium text-gray-700 dark:text-gray-200">
-                                    <span>Upload Document</span>
-                                    <span>→</span>
-                                </button>
-                            </Link>
-                        </div>
-                    </div>
+
                 </div>
             </main >
         </div >
