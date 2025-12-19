@@ -98,22 +98,33 @@ export default function EditorPage() {
         const fetchData = async () => {
             try {
                 setLoading(true);
+                console.log('EditorPage: Fetching data...', { projectId, rfpId, user: user?.uid });
+
                 if (projectId && user?.uid) {
+                    console.log('EditorPage: Loading project...', projectId);
                     const projectData = await getProject(user.uid, projectId);
+                    console.log('EditorPage: Project loaded', projectData);
                     setRfp(projectData);
                 } else if (rfpId && userData?.teamId) {
+                    console.log('EditorPage: Loading RFP...', rfpId);
                     const result = await getRFPDetail(userData.teamId, rfpId);
                     if (result.success) {
                         setRfp(result.data);
                     }
+                } else {
+                    console.log('EditorPage: No projectId or rfpId provided');
                 }
             } catch (error) {
-                console.error('Failed to fetch data:', error);
+                console.error('EditorPage: Failed to fetch data:', error);
             } finally {
                 setLoading(false);
             }
         };
-        fetchData();
+
+        // Wait for user to be loaded
+        if (user) {
+            fetchData();
+        }
     }, [userData, user, rfpId, projectId]);
 
     // Real-time sync listener for collaborative editing
