@@ -737,7 +737,7 @@ export default function EditorPage() {
                                     <div className="flex items-center gap-2">
                                         {question.trustScore && (
                                             <span className="text-xs px-2 py-1 bg-gray-100 rounded-full text-gray-600">
-                                                Trust: {question.trustScore}%
+                                                AI Conf: {question.trustScore}%
                                             </span>
                                         )}
                                         {!isEditing && (

@@ -491,7 +491,7 @@ export default function ProjectIndexPage() {
                                                                     )}
                                                                     {question.trustScore && (
                                                                         <div className="mt-2 text-xs text-gray-500">
-                                                                            Trust Score: {question.trustScore}%
+                                                                            AI Confidence: {question.trustScore}%
                                                                         </div>
                                                                     )}
                                                                 </div>

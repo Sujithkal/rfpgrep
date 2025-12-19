@@ -299,6 +299,57 @@ export default function DashboardPage() {
                     </p>
                 </div>
 
+                {/* Usage Counters - AppSumo Ready */}
+                <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                        {
+                            label: 'Projects',
+                            current: rfps.length,
+                            limit: userData?.plan === 'enterprise' ? '∞' : (userData?.plan === 'professional' ? 50 : userData?.plan === 'starter' ? 10 : 3),
+                            icon: '📁'
+                        },
+                        {
+                            label: 'AI Generations',
+                            current: userData?.usage?.[new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')]?.aiGenerations || 0,
+                            limit: userData?.plan === 'enterprise' ? '∞' : (userData?.plan === 'professional' ? 2000 : userData?.plan === 'starter' ? 500 : 50),
+                            icon: '🤖'
+                        },
+                        {
+                            label: 'Exports',
+                            current: userData?.usage?.[new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0')]?.exports || 0,
+                            limit: userData?.plan === 'enterprise' ? '∞' : (userData?.plan === 'professional' ? 200 : userData?.plan === 'starter' ? 50 : 10),
+                            icon: '📤'
+                        },
+                    ].map((item, i) => {
+                        const percent = item.limit === '∞' ? 0 : Math.round((item.current / item.limit) * 100);
+                        const isNearLimit = percent >= 80;
+                        const isAtLimit = percent >= 100;
+
+                        return (
+                            <div key={i} className={`p-4 rounded-xl border ${isAtLimit ? 'bg-red-50 border-red-200 dark:bg-red-900/20' : isNearLimit ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-lg">{item.icon}</span>
+                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isAtLimit ? 'bg-red-100 text-red-700' : isNearLimit ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                                        {isAtLimit ? 'Limit Reached' : isNearLimit ? 'Near Limit' : 'OK'}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{item.label}</p>
+                                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {item.current}<span className="text-sm font-normal text-gray-500">/{item.limit}</span>
+                                </p>
+                                {item.limit !== '∞' && (
+                                    <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all ${isAtLimit ? 'bg-red-500' : isNearLimit ? 'bg-yellow-500' : 'bg-indigo-500'}`}
+                                            style={{ width: `${Math.min(100, percent)}%` }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+
                 {/* Bento Grid Dashboard */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
                     {/* Recent Activity */}

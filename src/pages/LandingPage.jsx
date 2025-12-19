@@ -144,7 +144,7 @@ export default function LandingPage() {
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                         {[
                             { icon: '🤖', title: 'AI Response Generation', desc: 'Generate tailored responses using your company knowledge base and past wins' },
-                            { icon: '🛡️', title: 'Trust Score Analysis', desc: 'Get confidence ratings on every AI-generated answer with source citations' },
+                            { icon: '🛡️', title: 'AI Confidence Indicator', desc: 'Get experimental confidence ratings on AI-generated answers' },
                             { icon: '📚', title: 'Smart Content Library', desc: 'Auto-categorize and search through thousands of documents instantly' },
                             { icon: '👥', title: 'Real-time Collaboration', desc: 'Assign questions to SMEs and track review status in one place' },
                             { icon: '⚡', title: 'Fast Import/Export', desc: 'Parse complex Excel RFPs and export with formatting intact' },
@@ -243,7 +243,7 @@ export default function LandingPage() {
                                     {[
                                         { feature: 'AI-Powered Response Generation', us: true, them: false },
                                         { feature: 'Real-time Multi-user Collaboration', us: true, them: false },
-                                        { feature: 'Trust Score with Confidence Ratings', us: true, them: false },
+                                        { feature: 'AI Confidence Ratings (experimental)', us: true, them: false },
                                         { feature: 'Multi-language Translation (13+ languages)', us: true, them: false },
                                         { feature: 'Version History & Rollback', us: true, them: 'Limited' },
                                         { feature: 'Comment Threads on Questions', us: true, them: false },

@@ -39,8 +39,16 @@ export default function CompliancePage() {
 
             {/* Content */}
             <div className="max-w-6xl mx-auto px-6 py-16">
-                <h1 className="text-5xl font-bold text-white mb-6">Compliance Center</h1>
-                <p className="text-xl text-white/70 mb-12">Interactive compliance tracking and reporting dashboard.</p>
+                <h1 className="text-5xl font-bold text-white mb-6">Security & Compliance</h1>
+                <p className="text-xl text-white/70 mb-4">Our security practices and compliance alignment status.</p>
+
+                {/* Important Notice */}
+                <div className="bg-yellow-500/20 border border-yellow-400/30 rounded-xl p-4 mb-12">
+                    <p className="text-yellow-200 text-sm">
+                        <strong>⚠️ Important:</strong> RFPgrep follows security best practices aligned with SOC 2 and ISO/IEC 27001 frameworks.
+                        <strong> Formal certification is planned but not yet completed.</strong> We are committed to achieving certification as part of our roadmap.
+                    </p>
+                </div>
 
                 {/* Compliance Overview Cards */}
                 <section className="mb-16">
@@ -51,8 +59,8 @@ export default function CompliancePage() {
                                 key={standard.id}
                                 onClick={() => setSelectedStandard(selectedStandard === standard.id ? null : standard.id)}
                                 className={`bg-white/10 backdrop-blur-md rounded-xl p-6 border transition-all text-left ${selectedStandard === standard.id
-                                        ? 'border-indigo-400 ring-2 ring-indigo-400/50'
-                                        : 'border-white/20 hover:border-white/40'
+                                    ? 'border-indigo-400 ring-2 ring-indigo-400/50'
+                                    : 'border-white/20 hover:border-white/40'
                                     }`}
                             >
                                 <div className="flex items-center justify-between mb-4">
@@ -119,8 +127,8 @@ export default function CompliancePage() {
                                             </div>
                                         </div>
                                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${req.met
-                                                ? 'bg-green-500/20 text-green-400'
-                                                : 'bg-red-500/20 text-red-400'
+                                            ? 'bg-green-500/20 text-green-400'
+                                            : 'bg-red-500/20 text-red-400'
                                             }`}>
                                             {req.met ? 'Compliant' : 'Action Required'}
                                         </span>
