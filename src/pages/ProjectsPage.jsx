@@ -379,12 +379,12 @@ export default function ProjectsPage() {
                                                 const { generateMeetingNotes } = await import('../services/meetingNotesService');
                                                 const result = await generateMeetingNotes(project, 'progress');
                                                 if (result.success) {
-                                                    // Create a blob and download
-                                                    const blob = new Blob([result.notes], { type: 'text/markdown' });
+                                                    // Create a blob and download as text file
+                                                    const blob = new Blob([result.notes], { type: 'text/plain' });
                                                     const url = URL.createObjectURL(blob);
                                                     const a = document.createElement('a');
                                                     a.href = url;
-                                                    a.download = `${project.name.replace(/\s+/g, '_')}_meeting_notes.md`;
+                                                    a.download = `${project.name.replace(/\s+/g, '_')}_meeting_notes.txt`;
                                                     a.click();
                                                     URL.revokeObjectURL(url);
                                                 }
