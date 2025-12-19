@@ -127,7 +127,7 @@ export default function TeamPage() {
                         <select
                             value={inviteRole}
                             onChange={(e) => setInviteRole(e.target.value)}
-                            className="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                            className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
                             <option value="viewer">Viewer - Can view only</option>
                             <option value="editor">Editor - Can edit responses</option>
