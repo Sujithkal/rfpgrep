@@ -43,7 +43,7 @@ export default function NotFoundPage() {
                 <div className="mt-12 pt-8 border-t border-gray-200">
                     <p className="text-sm text-gray-500 mb-4">Maybe you were looking for:</p>
                     <div className="flex flex-wrap justify-center gap-3">
-                        <Link to="/upload" className="text-sm text-indigo-600 hover:underline">Upload RFP</Link>
+                        <Link to="/projects" className="text-sm text-indigo-600 hover:underline">Create Project</Link>
                         <span className="text-gray-300">•</span>
                         <Link to="/pricing" className="text-sm text-indigo-600 hover:underline">Pricing</Link>
                         <span className="text-gray-300">•</span>

@@ -70,7 +70,7 @@ function App() {
               <Route path="/project" element={<ProjectIndexPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/editor" element={<EditorPage />} />
-              <Route path="/upload" element={<UploadPage />} />
+              <Route path="/upload" element={<Navigate to="/projects" replace />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/knowledge" element={<KnowledgePage />} />
