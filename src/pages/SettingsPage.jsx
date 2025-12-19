@@ -154,6 +154,83 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
+                    {/* Preferences Section */}
+                    <div className="bg-white rounded-xl border border-gray-200 p-8">
+                        <h2 className="text-xl font-bold text-gray-900 mb-6">Preferences</h2>
+
+                        <div className="space-y-6">
+                            {/* Gamification Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p className="font-semibold text-gray-900">Gamification</p>
+                                    <p className="text-sm text-gray-500">Show badges, points, and leaderboards</p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        const newValue = !userData?.settings?.gamificationEnabled;
+                                        try {
+                                            await updateUserProfile(user.uid, {
+                                                'settings.gamificationEnabled': newValue
+                                            });
+                                            setSuccess(newValue ? 'Gamification enabled!' : 'Gamification disabled');
+                                            setTimeout(() => setSuccess(''), 3000);
+                                        } catch (err) {
+                                            setError('Failed to update setting');
+                                        }
+                                    }}
+                                    className={`relative w-14 h-7 rounded-full transition-colors ${
+                                        userData?.settings?.gamificationEnabled !== false 
+                                            ? 'bg-indigo-600' 
+                                            : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <span 
+                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                                            userData?.settings?.gamificationEnabled !== false 
+                                                ? 'translate-x-8' 
+                                                : 'translate-x-1'
+                                        }`} 
+                                    />
+                                </button>
+                            </div>
+
+                            {/* Dark Mode Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                                <div>
+                                    <p className="font-semibold text-gray-900">Email Notifications</p>
+                                    <p className="text-sm text-gray-500">Get notified about RFP updates via email</p>
+                                </div>
+                                <button
+                                    onClick={async () => {
+                                        const newValue = !userData?.settings?.emailNotifications;
+                                        try {
+                                            await updateUserProfile(user.uid, {
+                                                'settings.emailNotifications': newValue
+                                            });
+                                            setSuccess(newValue ? 'Email notifications enabled!' : 'Email notifications disabled');
+                                            setTimeout(() => setSuccess(''), 3000);
+                                        } catch (err) {
+                                            setError('Failed to update setting');
+                                        }
+                                    }}
+                                    className={`relative w-14 h-7 rounded-full transition-colors ${
+                                        userData?.settings?.emailNotifications 
+                                            ? 'bg-indigo-600' 
+                                            : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <span 
+                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                                            userData?.settings?.emailNotifications 
+                                                ? 'translate-x-8' 
+                                                : 'translate-x-1'
+                                        }`} 
+                                    />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Danger Zone */}
                     <div className="bg-white rounded-xl border-2 border-red-200 p-8">
                         <h2 className="text-xl font-bold text-red-600 mb-6">Danger Zone</h2>

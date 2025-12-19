@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getProjects, createProject } from '../services/projectService';
+import { getProjects, createProject, updateProjectOutcome } from '../services/projectService';
 import NewProjectModal from '../components/NewProjectModal';
 
 export default function ProjectsPage() {
@@ -109,6 +109,30 @@ export default function ProjectsPage() {
         const diffTime = date - today;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
+    };
+
+    // Handle win/lost/pending outcome change
+    const handleOutcomeChange = async (e, projectId, outcome) => {
+        e.stopPropagation(); // Prevent card click navigation
+        try {
+            await updateProjectOutcome(currentUser.uid, projectId, outcome);
+            // Update local state
+            setProjects(prev => prev.map(p =>
+                p.id === projectId ? { ...p, outcome } : p
+            ));
+        } catch (error) {
+            console.error('Error updating outcome:', error);
+            alert('Failed to update outcome');
+        }
+    };
+
+    const getOutcomeColor = (outcome) => {
+        switch (outcome) {
+            case 'won': return 'bg-green-100 text-green-700 border-green-300';
+            case 'lost': return 'bg-red-100 text-red-700 border-red-300';
+            case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+            default: return 'bg-gray-100 text-gray-600 border-gray-200';
+        }
     };
 
     if (loading) {
@@ -322,6 +346,29 @@ export default function ProjectsPage() {
                                                 )}
                                             </div>
                                         )}
+                                    </div>
+
+                                    {/* Outcome (Won/Lost) Section */}
+                                    <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between">
+                                        <span className="text-xs text-gray-500 font-medium">Outcome:</span>
+                                        <div className="flex gap-1">
+                                            {[
+                                                { value: 'won', label: '🏆 Won', color: 'green' },
+                                                { value: 'lost', label: '❌ Lost', color: 'red' },
+                                                { value: 'pending', label: '⏳ Pending', color: 'yellow' }
+                                            ].map(({ value, label, color }) => (
+                                                <button
+                                                    key={value}
+                                                    onClick={(e) => handleOutcomeChange(e, project.id, project.outcome === value ? null : value)}
+                                                    className={`px-2 py-1 text-xs rounded-md border font-medium transition-all ${project.outcome === value
+                                                            ? getOutcomeColor(value)
+                                                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    {label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             );

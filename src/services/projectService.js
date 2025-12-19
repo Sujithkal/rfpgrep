@@ -151,6 +151,24 @@ export async function updateProject(userId, projectId, updates) {
 }
 
 /**
+ * Update project outcome (won/lost/pending) for win rate tracking
+ */
+export async function updateProjectOutcome(userId, projectId, outcome) {
+    try {
+        const projectRef = doc(firestore, `users/${userId}/projects/${projectId}`);
+        await setDoc(projectRef, {
+            outcome: outcome, // 'won', 'lost', 'pending', or null
+            outcomeUpdatedAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+        }, { merge: true });
+        return true;
+    } catch (error) {
+        console.error('Error updating project outcome:', error);
+        throw error;
+    }
+}
+
+/**
  * Update a specific question's response in a project
  * Now includes VERSION HISTORY tracking
  */
