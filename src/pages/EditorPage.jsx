@@ -116,6 +116,52 @@ export default function EditorPage() {
         fetchData();
     }, [userData, user, rfpId, projectId]);
 
+    // Real-time sync listener for collaborative editing
+    useEffect(() => {
+        if (!projectId || !user?.uid) return;
+
+        let unsubscribe = null;
+        const setupRealtimeSync = async () => {
+            try {
+                const { doc, onSnapshot } = await import('firebase/firestore');
+                const { db } = await import('../services/firebase');
+
+                const projectRef = doc(db, `users/${user.uid}/projects`, projectId);
+                unsubscribe = onSnapshot(projectRef, (snapshot) => {
+                    if (!snapshot.exists()) return;
+
+                    const newData = { id: snapshot.id, ...snapshot.data() };
+
+                    // Only update if data actually changed (avoid loops)
+                    setRfp(prev => {
+                        if (!prev) return newData;
+
+                        // Check if sections changed (collaborative edit)
+                        const prevStr = JSON.stringify(prev.sections);
+                        const newStr = JSON.stringify(newData.sections);
+
+                        if (prevStr !== newStr && editingIndex === null) {
+                            // Another user made changes
+                            console.log('📡 Real-time sync: Received updates from another user');
+                            return newData;
+                        }
+                        return prev;
+                    });
+                }, (error) => {
+                    console.error('Real-time sync error:', error);
+                });
+            } catch (error) {
+                console.error('Failed to setup real-time sync:', error);
+            }
+        };
+
+        setupRealtimeSync();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, [projectId, user?.uid, editingIndex]);
+
     // Flatten all questions for pagination
     const getAllQuestions = () => {
         if (!rfp?.sections) return [];
