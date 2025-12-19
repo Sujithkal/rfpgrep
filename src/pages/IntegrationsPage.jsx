@@ -443,15 +443,18 @@ export default function IntegrationsPage() {
                                     { id: 'zoho', name: 'Zoho CRM', icon: '🔴', color: 'bg-red-50 border-red-200', desc: 'Export potentials' },
                                     { id: 'sap', name: 'SAP ERP', icon: '🏢', color: 'bg-gray-50 border-gray-200', desc: 'Project export' },
                                 ].map(crm => (
-                                    <div key={crm.id} className={`p-4 rounded-lg border ${crm.color} flex items-center justify-between`}>
+                                    <div key={crm.id} className={`p-4 rounded-lg border ${crm.color} dark:bg-gray-800 dark:border-gray-700 flex items-center justify-between`}>
                                         <div className="flex items-center gap-3">
                                             <span className="text-2xl">{crm.icon}</span>
                                             <div>
-                                                <p className="font-medium text-gray-900">{crm.name}</p>
-                                                <p className="text-xs text-gray-500">{crm.desc}</p>
+                                                <p className="font-medium text-gray-900 dark:text-white">{crm.name}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{crm.desc}</p>
                                             </div>
                                         </div>
-                                        <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                                        <button
+                                            onClick={() => toast('Coming soon! This integration is on our roadmap.', { icon: '🚧' })}
+                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+                                        >
                                             Connect
                                         </button>
                                     </div>
