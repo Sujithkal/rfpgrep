@@ -527,60 +527,102 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {/* Achievements & Badges */}
-                    <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
-                        <div className="flex items-center gap-2.5 mb-4">
-                            <div className="w-9 h-9 rounded-lg bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
-                                <span className="text-yellow-600 dark:text-yellow-400 text-lg">🏆</span>
-                            </div>
-                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Achievements</h3>
-                        </div>
-                        {(() => {
-                            const points = userData?.gamification?.totalPoints || 0;
-                            const level = getLevel(points);
-                            const toNext = getPointsToNextLevel(points);
-                            const earnedBadges = getUserBadges(userData);
-
-                            return (
-                                <div className="flex-1 space-y-3">
-                                    {/* Level & Points */}
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-2xl">
-                                            {level.icon}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-gray-900 dark:text-white">{level.name}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {points} pts {toNext > 0 && `• ${toNext} to next level`}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {/* Recent Badges */}
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {earnedBadges.length > 0 ? (
-                                            earnedBadges.slice(0, 4).map(badge => (
-                                                <span
-                                                    key={badge.id}
-                                                    className="text-lg"
-                                                    title={badge.name}
-                                                >
-                                                    {badge.icon}
-                                                </span>
-                                            ))
-                                        ) : (
-                                            <div className="text-xs text-gray-400">
-                                                Complete tasks to earn badges!
-                                            </div>
-                                        )}
-                                        {earnedBadges.length > 4 && (
-                                            <span className="text-xs text-gray-500">+{earnedBadges.length - 4} more</span>
-                                        )}
-                                    </div>
+                    {/* Achievements & Badges (only when gamification enabled) */}
+                    {userData?.settings?.gamificationEnabled !== false ? (
+                        <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <div className="w-9 h-9 rounded-lg bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
+                                    <span className="text-yellow-600 dark:text-yellow-400 text-lg">🏆</span>
                                 </div>
-                            );
-                        })()}
-                    </div>
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Achievements</h3>
+                            </div>
+                            {(() => {
+                                const points = userData?.gamification?.totalPoints || 0;
+                                const level = getLevel(points);
+                                const toNext = getPointsToNextLevel(points);
+                                const earnedBadges = getUserBadges(userData);
+
+                                return (
+                                    <div className="flex-1 space-y-3">
+                                        {/* Level & Points */}
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-2xl">
+                                                {level.icon}
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{level.name}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {points} pts {toNext > 0 && `• ${toNext} to next level`}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Recent Badges */}
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {earnedBadges.length > 0 ? (
+                                                earnedBadges.slice(0, 4).map(badge => (
+                                                    <span
+                                                        key={badge.id}
+                                                        className="text-lg"
+                                                        title={badge.name}
+                                                    >
+                                                        {badge.icon}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <div className="text-xs text-gray-400">
+                                                    Complete tasks to earn badges!
+                                                </div>
+                                            )}
+                                            {earnedBadges.length > 4 && (
+                                                <span className="text-xs text-gray-500">+{earnedBadges.length - 4} more</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    ) : (
+                        /* Win Rate Stats (shown when gamification disabled) */
+                        <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <div className="w-9 h-9 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                                    <span className="text-green-600 dark:text-green-400 text-lg">📊</span>
+                                </div>
+                                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Win Rate</h3>
+                            </div>
+                            {(() => {
+                                const won = rfps.filter(r => r.outcome === 'won').length;
+                                const lost = rfps.filter(r => r.outcome === 'lost').length;
+                                const pending = rfps.filter(r => r.outcome === 'pending').length;
+                                const total = won + lost;
+                                const winRate = total > 0 ? Math.round((won / total) * 100) : 0;
+
+                                return (
+                                    <div className="flex-1 space-y-3">
+                                        <div className="text-center">
+                                            <p className="text-4xl font-bold text-green-600 dark:text-green-400">{winRate}%</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Win Rate</p>
+                                        </div>
+                                        <div className="flex justify-around text-center">
+                                            <div>
+                                                <p className="text-lg font-bold text-green-600">{won}</p>
+                                                <p className="text-xs text-gray-500">Won</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-lg font-bold text-red-500">{lost}</p>
+                                                <p className="text-xs text-gray-500">Lost</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-lg font-bold text-yellow-500">{pending}</p>
+                                                <p className="text-xs text-gray-500">Pending</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
 
                     {/* Quick Actions */}
                     <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
