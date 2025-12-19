@@ -72,16 +72,20 @@ export const QUALITY_ISSUES = {
 export const reviewAnswer = (question, answer) => {
     const issues = [];
 
-    if (!answer || answer.trim().length === 0) {
+    // Handle undefined/null inputs
+    const safeQuestion = question || '';
+    const safeAnswer = answer || '';
+
+    if (!safeAnswer || safeAnswer.trim().length === 0) {
         return [{ ...QUALITY_ISSUES.TOO_SHORT, detail: 'No answer provided' }];
     }
 
-    const words = answer.trim().split(/\s+/).length;
-    const sentences = answer.split(/[.!?]+/).filter(s => s.trim()).length;
-    const hasNumbers = /\d+/.test(answer);
-    const hasPercentages = /%/.test(answer);
-    const hasBullets = /[•\-\*]/.test(answer) || answer.includes('\n-');
-    const questionWords = question.toLowerCase().split(/\s+/);
+    const words = safeAnswer.trim().split(/\s+/).length;
+    const sentences = safeAnswer.split(/[.!?]+/).filter(s => s.trim()).length;
+    const hasNumbers = /\d+/.test(safeAnswer);
+    const hasPercentages = /%/.test(safeAnswer);
+    const hasBullets = /[•\-\*]/.test(safeAnswer) || safeAnswer.includes('\n-');
+    const questionWords = safeQuestion.toLowerCase().split(/\s+/);
 
     // Check: Too short
     if (words < 20) {
@@ -101,7 +105,7 @@ export const reviewAnswer = (question, answer) => {
 
     // Check: Missing specifics
     const specificWords = ['specifically', 'example', 'for instance', 'such as', 'including'];
-    const hasSpecifics = specificWords.some(w => answer.toLowerCase().includes(w));
+    const hasSpecifics = specificWords.some(w => safeAnswer.toLowerCase().includes(w));
     if (words > 50 && !hasSpecifics && !hasBullets) {
         issues.push({
             ...QUALITY_ISSUES.MISSING_SPECIFICS,
@@ -111,7 +115,7 @@ export const reviewAnswer = (question, answer) => {
 
     // Check: Weak opening (starts with filler words)
     const weakStarts = ['i think', 'we think', 'maybe', 'perhaps', 'possibly', 'i believe'];
-    const firstSentence = answer.split(/[.!?]/)[0]?.toLowerCase() || '';
+    const firstSentence = safeAnswer.split(/[.!?]/)[0]?.toLowerCase() || '';
     if (weakStarts.some(w => firstSentence.startsWith(w))) {
         issues.push({
             ...QUALITY_ISSUES.WEAK_OPENING,
@@ -123,7 +127,7 @@ export const reviewAnswer = (question, answer) => {
     const importantWords = questionWords.filter(w =>
         w.length > 4 && !['what', 'when', 'where', 'which', 'your', 'does', 'have', 'please'].includes(w)
     );
-    const answerLower = answer.toLowerCase();
+    const answerLower = safeAnswer.toLowerCase();
     const matchedWords = importantWords.filter(w => answerLower.includes(w));
     if (importantWords.length > 2 && matchedWords.length < importantWords.length * 0.3) {
         issues.push({
@@ -138,7 +142,7 @@ export const reviewAnswer = (question, answer) => {
         /\bi\s/gi,           // Lowercase "i"
         /[,\.]{2,}/g,        // Multiple punctuation
     ];
-    const hasGrammarIssues = grammarPatterns.some(p => p.test(answer));
+    const hasGrammarIssues = grammarPatterns.some(p => p.test(safeAnswer));
     if (hasGrammarIssues) {
         issues.push({
             ...QUALITY_ISSUES.GRAMMAR_ISSUES,
