@@ -886,7 +886,7 @@ export default function EditorPage() {
                                                     </div>
                                                     <div className="space-y-1">
                                                         {review.issues.slice(0, 3).map((issue, i) => (
-                                                            <div key={i} className="text-xs text-gray-800 flex items-center gap-2">
+                                                            <div key={i} className="text-xs text-gray-900 flex items-center gap-2">
                                                                 <span>{issue.icon}</span>
                                                                 <span>{issue.label}: {issue.detail || issue.suggestion}</span>
                                                             </div>
