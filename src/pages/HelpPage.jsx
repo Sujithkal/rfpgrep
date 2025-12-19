@@ -55,9 +55,85 @@ export default function HelpPage() {
             {/* Content */}
             <div className="max-w-4xl mx-auto px-6 py-16">
                 <h1 className="text-5xl font-bold text-white mb-6">Help Center</h1>
-                <p className="text-xl text-white/70 mb-12">Find answers to common questions.</p>
+                <p className="text-xl text-white/70 mb-12">Find answers to common questions and get started quickly.</p>
+
+                {/* Quick Start Guides */}
+                <div className="mb-16">
+                    <h2 className="text-2xl font-bold text-white mb-6">🚀 Quick Start Guides</h2>
+                    <div className="grid md:grid-cols-2 gap-4">
+                        {[
+                            { icon: '📤', title: 'Upload Your First RFP', steps: ['Go to Projects', 'Click "New Project"', 'Upload PDF/Word/Excel', 'AI extracts questions automatically'] },
+                            { icon: '🤖', title: 'Generate AI Responses', steps: ['Open a project', 'Click "Generate All" or generate individually', 'Review and edit responses', 'Approve when ready'] },
+                            { icon: '📚', title: 'Build Knowledge Library', steps: ['Go to Knowledge Library', 'Click "Add Answer"', 'Enter reusable content', 'Tag for easy discovery'] },
+                            { icon: '👥', title: 'Collaborate with Team', steps: ['Go to Team page', 'Enter colleague email', 'Assign role (Viewer/Editor/Admin)', 'They get instant access'] },
+                        ].map((guide, i) => (
+                            <div key={i} className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <span className="text-2xl">{guide.icon}</span>
+                                    <h3 className="text-lg font-semibold text-white">{guide.title}</h3>
+                                </div>
+                                <ol className="space-y-2">
+                                    {guide.steps.map((step, j) => (
+                                        <li key={j} className="flex items-start gap-2 text-white/70">
+                                            <span className="text-indigo-400 font-bold">{j + 1}.</span>
+                                            <span>{step}</span>
+                                        </li>
+                                    ))}
+                                </ol>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Keyboard Shortcuts */}
+                <div className="mb-16">
+                    <h2 className="text-2xl font-bold text-white mb-6">⌨️ Keyboard Shortcuts</h2>
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {[
+                                { keys: 'Ctrl + S', action: 'Save current answer' },
+                                { keys: 'Ctrl + Enter', action: 'Generate AI response' },
+                                { keys: 'Ctrl + /', action: 'Open command palette' },
+                                { keys: 'Ctrl + K', action: 'Quick search' },
+                                { keys: 'Ctrl + E', action: 'Export current RFP' },
+                                { keys: 'Ctrl + Shift + A', action: 'Approve answer' },
+                                { keys: '↑ / ↓', action: 'Navigate between questions' },
+                                { keys: 'Esc', action: 'Close modal/cancel' },
+                            ].map((shortcut, i) => (
+                                <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                    <span className="text-white/70">{shortcut.action}</span>
+                                    <kbd className="px-3 py-1 bg-gray-800 text-indigo-300 rounded-lg text-sm font-mono border border-gray-600">
+                                        {shortcut.keys}
+                                    </kbd>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Video Tutorials */}
+                <div className="mb-16">
+                    <h2 className="text-2xl font-bold text-white mb-6">🎥 Video Tutorials</h2>
+                    <div className="grid md:grid-cols-3 gap-4">
+                        {[
+                            { title: 'Getting Started', duration: '3:24', icon: '🎬' },
+                            { title: 'AI Response Generation', duration: '5:12', icon: '🤖' },
+                            { title: 'Team Collaboration', duration: '4:45', icon: '👥' },
+                        ].map((video, i) => (
+                            <div key={i} className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 text-center hover:bg-white/15 transition-colors cursor-pointer group">
+                                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                                    {video.icon}
+                                </div>
+                                <h3 className="font-semibold text-white mb-1">{video.title}</h3>
+                                <p className="text-sm text-white/50">{video.duration}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <p className="text-center text-white/50 mt-4 text-sm">Video tutorials coming soon!</p>
+                </div>
 
                 {/* FAQs */}
+                <h2 className="text-2xl font-bold text-white mb-6">❓ Frequently Asked Questions</h2>
                 <div className="space-y-4 mb-16">
                     {faqs.map((faq, i) => (
                         <div
