@@ -36,19 +36,19 @@ export default function SettingsPage() {
     };
 
     return (
-        <div className="min-h-screen bg-[#fafafa]">
+        <div className="min-h-screen bg-[#fafafa] dark:bg-gray-900">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200">
+            <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate('/dashboard')}
-                            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                         >
                             ← Back to Dashboard
                         </button>
-                        <div className="w-px h-6 bg-gray-200"></div>
-                        <h1 className="text-lg font-semibold text-gray-900">Settings</h1>
+                        <div className="w-px h-6 bg-gray-200 dark:bg-gray-600"></div>
+                        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Settings</h1>
                     </div>
                 </div>
             </header>
@@ -57,45 +57,45 @@ export default function SettingsPage() {
             <main className="max-w-3xl mx-auto px-6 py-12">
                 <div className="space-y-6">
                     {/* Profile Section */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-8">
-                        <h2 className="text-xl font-bold text-gray-900 mb-6">Profile Information</h2>
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Profile Information</h2>
 
                         {success && (
-                            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                            <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg text-green-700 dark:text-green-300 text-sm">
                                 {success}
                             </div>
                         )}
 
                         {error && (
-                            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 text-sm">
                                 {error}
                             </div>
                         )}
 
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                     Full Name
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.displayName}
                                     onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                     Email
                                 </label>
                                 <input
                                     type="email"
                                     value={user?.email || ''}
                                     disabled
-                                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-500 cursor-not-allowed"
+                                    className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 cursor-not-allowed"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Email cannot be changed</p>
                             </div>
 
                             <div>
@@ -339,14 +339,14 @@ export default function SettingsPage() {
                                         setTimeout(() => setSuccess(''), 2000);
                                     }}
                                     className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.autoExport
-                                            ? 'bg-indigo-600'
-                                            : 'bg-gray-300'
+                                        ? 'bg-indigo-600'
+                                        : 'bg-gray-300'
                                         }`}
                                 >
                                     <span
                                         className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.autoExport
-                                                ? 'translate-x-8'
-                                                : 'translate-x-1'
+                                            ? 'translate-x-8'
+                                            : 'translate-x-1'
                                             }`}
                                     />
                                 </button>
@@ -367,14 +367,14 @@ export default function SettingsPage() {
                                         setTimeout(() => setSuccess(''), 2000);
                                     }}
                                     className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.autoApplyTemplate
-                                            ? 'bg-indigo-600'
-                                            : 'bg-gray-300'
+                                        ? 'bg-indigo-600'
+                                        : 'bg-gray-300'
                                         }`}
                                 >
                                     <span
                                         className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.autoApplyTemplate
-                                                ? 'translate-x-8'
-                                                : 'translate-x-1'
+                                            ? 'translate-x-8'
+                                            : 'translate-x-1'
                                             }`}
                                     />
                                 </button>
