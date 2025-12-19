@@ -26,6 +26,16 @@ export default function DashboardPage() {
         const fetchRFPs = async () => {
             try {
                 setLoadingRfps(true);
+
+                // First, migrate any orphan RFPs to Untitled Project
+                if (user?.uid) {
+                    const { checkAndMigrateOnLogin } = await import('../services/migrationService');
+                    const migrationResult = await checkAndMigrateOnLogin(user.uid);
+                    if (migrationResult.migrated > 0) {
+                        console.log(`Migrated ${migrationResult.migrated} orphan RFPs`);
+                    }
+                }
+
                 let allRfps = [];
 
                 // Fetch team RFPs if user has a team
