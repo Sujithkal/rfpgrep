@@ -265,6 +265,47 @@ export default function TeamPage() {
                     </div>
                 )}
 
+                {/* Team Challenges */}
+                {userData?.settings?.gamificationEnabled !== false && (
+                    <div className="mt-8 bg-white rounded-xl border border-gray-200">
+                        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                            <h2 className="font-semibold text-gray-900">🎯 Team Challenges</h2>
+                            <button className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full hover:bg-indigo-200 transition-colors">
+                                + New Challenge
+                            </button>
+                        </div>
+                        <div className="divide-y divide-gray-100">
+                            {[
+                                { name: 'Complete 10 RFPs this week', progress: 7, target: 10, reward: '50 pts', icon: '📄', daysLeft: 3 },
+                                { name: 'Reach 90% average trust score', progress: 85, target: 90, reward: '100 pts', icon: '⭐', daysLeft: 5 },
+                                { name: 'Win 3 RFPs this month', progress: 1, target: 3, reward: '200 pts', icon: '🏆', daysLeft: 12 },
+                            ].map((challenge, i) => (
+                                <div key={i} className="p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xl">{challenge.icon}</span>
+                                            <span className="font-medium text-gray-900">{challenge.name}</span>
+                                        </div>
+                                        <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
+                                            🎁 {challenge.reward}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                                            <div
+                                                className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all"
+                                                style={{ width: `${(challenge.progress / challenge.target) * 100}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-sm text-gray-600">{challenge.progress}/{challenge.target}</span>
+                                        <span className="text-xs text-gray-400">{challenge.daysLeft}d left</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Role Descriptions */}
                 <div className="mt-8 p-6 bg-gray-50 rounded-xl border border-gray-200">
                     <h3 className="font-semibold text-gray-900 mb-4">Role Permissions</h3>

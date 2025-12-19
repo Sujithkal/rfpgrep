@@ -445,6 +445,49 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
+                    {/* AI Priority Suggestions */}
+                    <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
+                        <div className="flex items-center gap-2.5 mb-4">
+                            <div className="w-9 h-9 rounded-lg bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                                <span className="text-orange-600 dark:text-orange-400 text-lg">🎯</span>
+                            </div>
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Priority Focus</h3>
+                        </div>
+                        <div className="flex-1 space-y-2 overflow-auto max-h-24">
+                            {rfps.length === 0 ? (
+                                <p className="text-sm text-gray-500">No RFPs to prioritize</p>
+                            ) : (
+                                rfps
+                                    .filter(r => r.status === 'ready' && r.outcome !== 'won' && r.outcome !== 'lost')
+                                    .sort((a, b) => {
+                                        // Priority: Due date (if exists), then by questions count
+                                        const aDue = a.dueDate?.toDate?.() || a.dueDate;
+                                        const bDue = b.dueDate?.toDate?.() || b.dueDate;
+                                        if (aDue && bDue) return new Date(aDue) - new Date(bDue);
+                                        if (aDue) return -1;
+                                        if (bDue) return 1;
+                                        return (b.totalQuestions || 0) - (a.totalQuestions || 0);
+                                    })
+                                    .slice(0, 2)
+                                    .map((rfp, i) => (
+                                        <Link key={rfp.id} to={`/editor?rfpId=${rfp.id}`}>
+                                            <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors cursor-pointer text-sm">
+                                                <span>{i === 0 ? '🔥' : '⏰'}</span>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="truncate text-gray-700 dark:text-gray-300 font-medium">{rfp.name}</p>
+                                                    <p className="text-xs text-gray-500">{rfp.totalQuestions || 0} questions</p>
+                                                </div>
+                                                <span className="text-xs text-orange-600 font-medium">{i === 0 ? 'Top Priority' : 'Next Up'}</span>
+                                            </div>
+                                        </Link>
+                                    ))
+                            )}
+                            {rfps.length > 0 && rfps.filter(r => r.status === 'ready').length === 0 && (
+                                <p className="text-sm text-green-600">✅ All RFPs processed!</p>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Pending Tasks */}
                     <div className="col-span-1 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
                         <div className="flex items-center gap-2.5 mb-4">
@@ -645,7 +688,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     );
 }
