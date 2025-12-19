@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile, logout } from '../services/authService';
@@ -13,6 +13,18 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
+
+    // Local state for toggles - enables instant UI response
+    const [gamificationEnabled, setGamificationEnabled] = useState(userData?.settings?.gamificationEnabled !== false);
+    const [emailNotifications, setEmailNotifications] = useState(userData?.settings?.emailNotifications || false);
+
+    // Sync local state when userData changes
+    useEffect(() => {
+        if (userData?.settings) {
+            setGamificationEnabled(userData.settings.gamificationEnabled !== false);
+            setEmailNotifications(userData.settings.emailNotifications || false);
+        }
+    }, [userData]);
 
     const handleSave = async () => {
         setSaving(true);
@@ -166,62 +178,64 @@ export default function SettingsPage() {
                                     <p className="text-sm text-gray-500">Show badges, points, and leaderboards</p>
                                 </div>
                                 <button
-                                    onClick={async () => {
-                                        const newValue = !userData?.settings?.gamificationEnabled;
-                                        try {
-                                            await updateUserProfile(user.uid, {
-                                                'settings.gamificationEnabled': newValue
-                                            });
-                                            await refreshUserData();
+                                    onClick={() => {
+                                        // Optimistic UI update - instant response
+                                        const newValue = !gamificationEnabled;
+                                        setGamificationEnabled(newValue);
+
+                                        // Update Firestore in background
+                                        updateUserProfile(user.uid, {
+                                            'settings.gamificationEnabled': newValue
+                                        }).then(() => {
+                                            refreshUserData();
                                             setSuccess(newValue ? 'Gamification enabled!' : 'Gamification disabled');
                                             setTimeout(() => setSuccess(''), 3000);
-                                        } catch (err) {
+                                        }).catch(() => {
+                                            // Revert on error
+                                            setGamificationEnabled(!newValue);
                                             setError('Failed to update setting');
-                                        }
+                                        });
                                     }}
-                                    className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.gamificationEnabled !== false
-                                        ? 'bg-indigo-600'
-                                        : 'bg-gray-300'
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${gamificationEnabled ? 'bg-indigo-600' : 'bg-gray-300'
                                         }`}
                                 >
                                     <span
-                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.gamificationEnabled !== false
-                                            ? 'translate-x-7'
-                                            : 'translate-x-1'
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${gamificationEnabled ? 'translate-x-6' : 'translate-x-1'
                                             }`}
                                     />
                                 </button>
                             </div>
 
-                            {/* Dark Mode Toggle */}
+                            {/* Email Notifications Toggle */}
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                                 <div>
                                     <p className="font-semibold text-gray-900">Email Notifications</p>
                                     <p className="text-sm text-gray-500">Get notified about RFP updates via email</p>
                                 </div>
                                 <button
-                                    onClick={async () => {
-                                        const newValue = !userData?.settings?.emailNotifications;
-                                        try {
-                                            await updateUserProfile(user.uid, {
-                                                'settings.emailNotifications': newValue
-                                            });
-                                            await refreshUserData();
+                                    onClick={() => {
+                                        // Optimistic UI update - instant response
+                                        const newValue = !emailNotifications;
+                                        setEmailNotifications(newValue);
+
+                                        // Update Firestore in background
+                                        updateUserProfile(user.uid, {
+                                            'settings.emailNotifications': newValue
+                                        }).then(() => {
+                                            refreshUserData();
                                             setSuccess(newValue ? 'Email notifications enabled!' : 'Email notifications disabled');
                                             setTimeout(() => setSuccess(''), 3000);
-                                        } catch (err) {
+                                        }).catch(() => {
+                                            // Revert on error
+                                            setEmailNotifications(!newValue);
                                             setError('Failed to update setting');
-                                        }
+                                        });
                                     }}
-                                    className={`relative w-14 h-7 rounded-full transition-colors ${userData?.settings?.emailNotifications
-                                        ? 'bg-indigo-600'
-                                        : 'bg-gray-300'
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${emailNotifications ? 'bg-indigo-600' : 'bg-gray-300'
                                         }`}
                                 >
                                     <span
-                                        className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${userData?.settings?.emailNotifications
-                                            ? 'translate-x-7'
-                                            : 'translate-x-1'
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${emailNotifications ? 'translate-x-6' : 'translate-x-1'
                                             }`}
                                     />
                                 </button>
