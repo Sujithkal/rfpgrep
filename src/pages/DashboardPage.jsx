@@ -477,19 +477,26 @@ export default function DashboardPage() {
                             {rfps.length === 0 ? (
                                 <p className="text-sm text-gray-500">No RFPs to prioritize</p>
                             ) : (
-                                rfps
-                                    .filter(r => r.status === 'ready' && r.outcome !== 'won' && r.outcome !== 'lost')
-                                    .sort((a, b) => {
-                                        // Priority: Due date (if exists), then by questions count
-                                        const aDue = a.dueDate?.toDate?.() || a.dueDate;
-                                        const bDue = b.dueDate?.toDate?.() || b.dueDate;
-                                        if (aDue && bDue) return new Date(aDue) - new Date(bDue);
-                                        if (aDue) return -1;
-                                        if (bDue) return 1;
-                                        return (b.totalQuestions || 0) - (a.totalQuestions || 0);
-                                    })
-                                    .slice(0, 2)
-                                    .map((rfp, i) => (
+                                (() => {
+                                    // Get projects that need attention (not won/lost, have questions)
+                                    const priorityProjects = rfps
+                                        .filter(r => r.outcome !== 'won' && r.outcome !== 'lost')
+                                        .sort((a, b) => {
+                                            // Priority: Due date (if exists), then by questions count
+                                            const aDue = a.dueDate?.toDate?.() || a.dueDate;
+                                            const bDue = b.dueDate?.toDate?.() || b.dueDate;
+                                            if (aDue && bDue) return new Date(aDue) - new Date(bDue);
+                                            if (aDue) return -1;
+                                            if (bDue) return 1;
+                                            return (b.totalQuestions || 0) - (a.totalQuestions || 0);
+                                        })
+                                        .slice(0, 2);
+
+                                    if (priorityProjects.length === 0) {
+                                        return <p className="text-sm text-green-600">✅ All projects completed!</p>;
+                                    }
+
+                                    return priorityProjects.map((rfp, i) => (
                                         <Link key={rfp.id} to={`/editor?projectId=${rfp.id}`}>
                                             <div className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 dark:bg-orange-900/30 hover:bg-orange-100 dark:hover:bg-orange-900/50 transition-colors cursor-pointer text-sm">
                                                 <span>{i === 0 ? '🔥' : '⏰'}</span>
@@ -500,10 +507,8 @@ export default function DashboardPage() {
                                                 <span className="text-xs text-orange-600 font-medium">{i === 0 ? 'Top Priority' : 'Next Up'}</span>
                                             </div>
                                         </Link>
-                                    ))
-                            )}
-                            {rfps.length > 0 && rfps.filter(r => r.status === 'ready').length === 0 && (
-                                <p className="text-sm text-green-600">✅ All RFPs processed!</p>
+                                    ));
+                                })()
                             )}
                         </div>
                     </div>
