@@ -248,13 +248,13 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Custom AI Prompts */}
-                    <div className="bg-white rounded-xl border border-gray-200 p-8">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-900">🤖 Custom AI Prompts</h2>
-                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">Pro Feature</span>
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">🤖 Custom AI Prompts</h2>
+                            <span className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-full">Pro Feature</span>
                         </div>
 
-                        <p className="text-sm text-gray-600 mb-6">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                             Create custom AI actions that appear in the editor dropdown. Define your own prompts for specialized response styles.
                         </p>
 
@@ -262,10 +262,10 @@ export default function SettingsPage() {
                         <div className="space-y-3 mb-6">
                             {(userData?.settings?.customPrompts || []).length > 0 ? (
                                 userData.settings.customPrompts.map((prompt, i) => (
-                                    <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div key={i} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                                         <div>
-                                            <p className="font-medium text-gray-900">{prompt.name}</p>
-                                            <p className="text-sm text-gray-500 truncate max-w-md">{prompt.instructions}</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">{prompt.name}</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-md">{prompt.instructions}</p>
                                         </div>
                                         <button
                                             onClick={async () => {
@@ -281,30 +281,30 @@ export default function SettingsPage() {
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+                                <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-600">
                                     <span className="text-3xl mb-2 block">✨</span>
-                                    <p className="text-gray-500">No custom prompts yet</p>
-                                    <p className="text-sm text-gray-400">Add your first one below</p>
+                                    <p className="text-gray-500 dark:text-gray-400">No custom prompts yet</p>
+                                    <p className="text-sm text-gray-400 dark:text-gray-500">Add your first one below</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Add New Prompt */}
-                        <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                            <h3 className="font-semibold text-gray-900 mb-3">Add New Prompt</h3>
+                        <div className="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Add New Prompt</h3>
                             <div className="space-y-3">
                                 <input
                                     type="text"
                                     placeholder="Prompt name (e.g., 'Make Concise')"
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                     id="newPromptName"
                                 />
                                 <textarea
                                     placeholder="Instructions for AI (e.g., 'Rewrite this response to be under 100 words while keeping key points')"
-                                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-24 resize-none"
+                                    className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent h-24 resize-none"
                                     id="newPromptInstructions"
                                 />
-                                <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                     <input type="checkbox" id="shareWithTeam" className="w-4 h-4 text-indigo-600 rounded" />
                                     Share with my team
                                 </label>
