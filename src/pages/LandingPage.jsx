@@ -253,7 +253,6 @@ export default function LandingPage() {
                                         { feature: 'Team Role & Permissions', us: true, them: 'Basic' },
                                         { feature: 'Knowledge Base Integration', us: true, them: 'Limited' },
                                         { feature: 'SOC 2 & ISO 27001 Aligned Security', us: true, them: 'Varies' },
-                                        { feature: 'Gamification & Team Leaderboards', us: true, them: false },
                                         { feature: 'Auto-assignment by Expertise', us: true, them: false },
                                         { feature: 'No AI Model Training on Your Data', us: true, them: false },
                                     ].map((row, i) => (
