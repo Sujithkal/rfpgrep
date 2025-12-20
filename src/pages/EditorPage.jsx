@@ -845,7 +845,7 @@ export default function EditorPage() {
                                         <textarea
                                             value={editText}
                                             onChange={(e) => setEditText(e.target.value)}
-                                            className="w-full h-40 p-4 border-2 border-indigo-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                                            className="w-full h-40 p-4 border-2 border-indigo-300 dark:border-indigo-500 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                                             placeholder="Enter your response..."
                                         />
                                         <div className="flex gap-2">
@@ -857,7 +857,7 @@ export default function EditorPage() {
                                             </button>
                                             <button
                                                 onClick={() => { setEditingIndex(null); setEditText(''); }}
-                                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium text-sm transition-colors"
+                                                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-100 rounded-lg font-medium text-sm transition-colors"
                                             >
                                                 Cancel
                                             </button>
@@ -874,21 +874,21 @@ export default function EditorPage() {
                                             const review = runAiReview(globalIndex, question);
                                             if (!review || review.issues.length === 0) return null;
                                             return (
-                                                <div className={`mt-2 p-3 rounded-lg border ${review.badge.color === 'green' ? 'bg-green-50 border-green-200' :
-                                                    review.badge.color === 'yellow' ? 'bg-yellow-50 border-yellow-200' :
-                                                        review.badge.color === 'orange' ? 'bg-orange-50 border-orange-200' :
-                                                            'bg-red-50 border-red-200'
+                                                <div className={`mt-2 p-3 rounded-lg border ${review.badge.color === 'green' ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700' :
+                                                    review.badge.color === 'yellow' ? 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700' :
+                                                        review.badge.color === 'orange' ? 'bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700' :
+                                                            'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700'
                                                     }`}>
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-xs font-medium text-gray-900 flex items-center gap-1">
+                                                        <span className="text-xs font-medium text-gray-900 dark:text-white flex items-center gap-1">
                                                             {review.badge.icon} AI Review: {review.badge.label} ({review.score}%)
                                                         </span>
                                                     </div>
                                                     <div className="space-y-1">
                                                         {review.issues.slice(0, 3).map((issue, i) => (
-                                                            <div key={i} className="text-xs text-black font-medium flex items-center gap-2">
+                                                            <div key={i} className="text-xs text-gray-800 dark:text-gray-100 font-medium flex items-center gap-2">
                                                                 <span>{issue.icon}</span>
-                                                                <span className="text-black">{issue.label}: {issue.detail || issue.suggestion}</span>
+                                                                <span className="text-gray-800 dark:text-gray-100">{issue.label}: {issue.detail || issue.suggestion}</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -897,15 +897,15 @@ export default function EditorPage() {
                                         })()}
                                     </>
                                 ) : (
-                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700 italic">
+                                    <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 text-sm text-yellow-700 dark:text-yellow-300 italic">
                                         ⚠️ No response yet. Click "Generate All", "Regenerate", or "Suggest" to create a response.
                                     </div>
                                 )}
 
                                 {/* Suggestions Panel */}
                                 {showSuggestions === globalIndex && (
-                                    <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-4">
-                                        <h4 className="text-sm font-semibold text-green-800 mb-3">
+                                    <div className="mt-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
+                                        <h4 className="text-sm font-semibold text-green-800 dark:text-green-300 mb-3">
                                             💬 Suggested Answers from Library
                                         </h4>
                                         {loadingSuggestions ? (
