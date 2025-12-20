@@ -362,15 +362,15 @@ export default function DashboardPage() {
                 {/* Bento Grid Dashboard */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-[200px]">
                     {/* Recent Activity */}
-                    <div className="col-span-2 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all">
-                        <div className="flex items-center gap-2.5 mb-4">
+                    <div className="col-span-2 row-span-1 bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-500 hover:shadow-lg transition-all flex flex-col overflow-hidden">
+                        <div className="flex items-center gap-2.5 mb-4 flex-shrink-0">
                             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
                                 <span className="text-white text-lg">📊</span>
                             </div>
                             <h3 className="text-base font-semibold text-gray-900 dark:text-white">Recent RFPs</h3>
                             <span className="ml-auto text-xs font-medium text-gray-500 dark:text-gray-400">{rfps.length} total</span>
                         </div>
-                        <div className="flex-1 space-y-2.5 overflow-auto max-h-32">
+                        <div className="flex-1 space-y-2.5 overflow-y-auto min-h-0">
                             {loadingRfps ? (
                                 <div className="text-center py-4">
                                     <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -384,7 +384,7 @@ export default function DashboardPage() {
                                                 {rfp.totalQuestions || 0} questions • {rfp.fileType?.toUpperCase()}
                                             </p>
                                         </Link>
-                                        <div className="flex items-center gap-2 ml-2">
+                                        <div className="flex items-center gap-2 ml-2 flex-shrink-0">
                                             <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${rfp.status === 'ready' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
                                                 rfp.status === 'processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
                                                     'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
