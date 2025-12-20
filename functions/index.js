@@ -717,7 +717,7 @@ exports.sendWelcomeEmail = onCall(async (request) => {
         const resend = getResend();
 
         const { data, error } = await resend.emails.send({
-            from: 'RFPgrep <onboarding@resend.dev>',
+            from: 'RFPgrep <noreply@rfpgrep.com>',
             to: email,
             subject: 'Welcome to RFPgrep! 🎉',
             html: `
@@ -781,7 +781,7 @@ exports.sendSubscriptionEmail = onCall(async (request) => {
         const resend = getResend();
 
         const { data, error } = await resend.emails.send({
-            from: 'RFPgrep <onboarding@resend.dev>',
+            from: 'RFPgrep <noreply@rfpgrep.com>',
             to: email,
             subject: `Thanks for subscribing to ${planName || 'Professional'}! 💳`,
             html: `
@@ -847,7 +847,7 @@ exports.sendTeamInviteEmail = onCall(async (request) => {
         const resend = getResend();
 
         const { data, error } = await resend.emails.send({
-            from: 'RFPgrep <onboarding@resend.dev>',
+            from: 'RFPgrep <noreply@rfpgrep.com>',
             to: email,
             subject: `${inviterName || inviterEmail || 'Someone'} invited you to join RFPgrep! 👥`,
             html: `
