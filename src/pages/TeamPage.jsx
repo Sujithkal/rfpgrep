@@ -222,12 +222,12 @@ export default function TeamPage() {
 
                 {/* Team Leaderboard */}
                 {userData?.settings?.gamificationEnabled !== false && (
-                    <div className="mt-8 bg-white rounded-xl border border-gray-200">
-                        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                            <h2 className="font-semibold text-gray-900">🏆 Team Leaderboard</h2>
-                            <span className="text-xs text-gray-500">Based on activity points</span>
+                    <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                            <h2 className="font-semibold text-gray-900 dark:text-white">🏆 Team Leaderboard</h2>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">Based on activity points</span>
                         </div>
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-gray-100 dark:divide-gray-700">
                             {/* Mock leaderboard data - in production this would come from actual team members */}
                             {[
                                 { rank: 1, name: userData?.displayName || 'You', email: user?.email, points: userData?.gamification?.totalPoints || 0, icon: '🥇' },
@@ -239,25 +239,25 @@ export default function TeamPage() {
                                     icon: i === 0 ? '🥈' : i === 1 ? '🥉' : '🎖️'
                                 })))
                             ].sort((a, b) => b.points - a.points).slice(0, 5).map((member, idx) => (
-                                <div key={member.email} className={`p-4 flex items-center justify-between ${idx === 0 ? 'bg-yellow-50' : ''}`}>
+                                <div key={member.email} className={`p-4 flex items-center justify-between ${idx === 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
                                     <div className="flex items-center gap-3">
                                         <span className="text-xl w-8">{idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '🎖️'}</span>
                                         <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
                                             {member.name?.[0]?.toUpperCase() || '?'}
                                         </div>
                                         <div>
-                                            <p className="font-medium text-gray-900">{member.name}</p>
-                                            <p className="text-xs text-gray-500">{member.email}</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">{member.name}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{member.email}</p>
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-bold text-indigo-600">{member.points} pts</p>
-                                        <p className="text-xs text-gray-500">#{idx + 1}</p>
+                                        <p className="font-bold text-indigo-600 dark:text-indigo-400">{member.points} pts</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">#{idx + 1}</p>
                                     </div>
                                 </div>
                             ))}
                             {members.length === 0 && (
-                                <div className="p-8 text-center text-gray-500">
+                                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                                     <p>Invite team members to see the leaderboard!</p>
                                 </div>
                             )}
