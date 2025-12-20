@@ -10,7 +10,7 @@ import { subscribeToPresence, updatePresence, removePresence, formatPresenceList
 import { reviewAnswer, getQualityScore, getQualityBadge } from '../services/aiReviewService';
 import { translateText, LANGUAGES } from '../services/translationService';
 import { getQuestionComments } from '../services/commentService';
-import { incrementUsage } from '../services/usageService';
+import { incrementUsage, checkLimit } from '../services/usageService';
 import VersionHistoryModal from '../components/VersionHistoryModal';
 import CommentThread from '../components/CommentThread';
 
@@ -233,6 +233,16 @@ export default function EditorPage() {
     // Batch Generate All Responses
     const handleGenerateAll = async () => {
         if (!rfp?.sections) return;
+
+        // Check AI generation limit before proceeding
+        if (user?.uid) {
+            const limitCheck = await checkLimit(user.uid, 'generateResponse', userData);
+            if (!limitCheck.allowed) {
+                alert(`⚠️ AI Generation Limit Reached!\n\n${limitCheck.reason}\n\nPlease upgrade your plan to continue generating responses.`);
+                return;
+            }
+        }
+
         setBatchGenerating(true);
 
         const questionsToGenerate = allQuestions.filter(q => !q.response);
@@ -294,6 +304,15 @@ export default function EditorPage() {
     // Regenerate single question
     const handleRegenerate = async (globalIndex) => {
         const question = allQuestions[globalIndex];
+
+        // Check AI generation limit before proceeding
+        if (user?.uid) {
+            const limitCheck = await checkLimit(user.uid, 'generateResponse', userData);
+            if (!limitCheck.allowed) {
+                alert(`⚠️ AI Generation Limit Reached!\n\n${limitCheck.reason}\n\nPlease upgrade your plan to continue.`);
+                return;
+            }
+        }
 
         // Check if answer is locked (approved or final)
         const status = question.workflowStatus || question.status;
