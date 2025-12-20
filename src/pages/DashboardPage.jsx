@@ -28,34 +28,43 @@ export default function DashboardPage() {
 
                 // First, migrate any orphan RFPs to Untitled Project
                 if (user?.uid) {
-                    const { checkAndMigrateOnLogin } = await import('../services/migrationService');
-                    const migrationResult = await checkAndMigrateOnLogin(user.uid);
-                    if (migrationResult.migrated > 0) {
-                        console.log(`Migrated ${migrationResult.migrated} orphan RFPs`);
+                    try {
+                        const { checkAndMigrateOnLogin } = await import('../services/migrationService');
+                        const migrationResult = await checkAndMigrateOnLogin(user.uid);
+                        if (migrationResult.migrated > 0) {
+                            console.log(`Migrated ${migrationResult.migrated} orphan RFPs`);
+                        }
+                    } catch (migrationError) {
+                        console.log('Migration skipped:', migrationError.message);
                     }
                 }
 
                 let allRfps = [];
 
-                // Fetch team RFPs if user has a team
+                // Fetch team RFPs if user has a team (with isolated error handling)
                 if (userData?.teamId) {
-                    const result = await getRFPs(userData.teamId);
-                    if (result.success) {
-                        allRfps = [...result.rfps];
+                    try {
+                        const result = await getRFPs(userData.teamId);
+                        if (result.success) {
+                            allRfps = [...result.rfps];
+                        }
+                    } catch (teamError) {
+                        console.log('Team RFPs skipped:', teamError.message);
+                        // Continue with user projects even if team fetch fails
                     }
                 }
 
-                // Also fetch user's projects from users/{uid}/projects
+                // Fetch user's projects using the same service function that works on ProjectsPage
                 if (user?.uid) {
-                    const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
-                    const { db } = await import('../services/firebase');
-                    const projectsRef = collection(db, `users / ${user.uid}/projects`);
-                    const q = query(projectsRef, orderBy('createdAt', 'desc'));
-                    const snapshot = await getDocs(q);
-
-                    snapshot.forEach(doc => {
-                        allRfps.push({ id: doc.id, ...doc.data(), isProject: true });
-                    });
+                    try {
+                        const projects = await getProjects(user.uid);
+                        console.log('Dashboard: Got projects:', projects.length);
+                        projects.forEach(project => {
+                            allRfps.push({ ...project, isProject: true });
+                        });
+                    } catch (projectsError) {
+                        console.error('Projects fetch error:', projectsError);
+                    }
                 }
 
                 setRfps(allRfps);
