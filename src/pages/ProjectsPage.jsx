@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getProjects, createProject, updateProjectOutcome } from '../services/projectService';
+import { getProjects, createProject, updateProjectOutcome, updateProject } from '../services/projectService';
 import NewProjectModal from '../components/NewProjectModal';
 
 export default function ProjectsPage() {
@@ -115,8 +115,21 @@ export default function ProjectsPage() {
     };
 
     // Handle win/lost/pending outcome change
-    const handleOutcomeChange = async (e, projectId, outcome) => {
-        e.stopPropagation(); // Prevent card click navigation
+    const handleUpdateStatus = async (e, projectId, newStatus) => {
+        e.stopPropagation(); // Prevent card click
+        try {
+            await updateProject(currentUser.uid, projectId, { status: newStatus });
+            // Update local state
+            setProjects(prev => prev.map(p =>
+                p.id === projectId ? { ...p, status: newStatus } : p
+            ));
+        } catch (error) {
+            console.error('Error updating status:', error);
+            alert('Failed to update status');
+        }
+    };
+
+    const handleUpdateOutcome = async (projectId, outcome) => {
         try {
             await updateProjectOutcome(currentUser.uid, projectId, outcome);
             // Update local state
@@ -260,12 +273,22 @@ export default function ProjectsPage() {
                                     {/* Header */}
                                     <div className="p-6 border-b border-gray-100">
                                         <div className="flex items-start justify-between mb-3">
-                                            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors flex-1">
+                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors flex-1">
                                                 {project.name}
                                             </h3>
-                                            <span className={`text-xs px-2 py-1 rounded-md font-medium ${getStatusColor(project.status)}`}>
-                                                {project.status}
-                                            </span>
+                                            <select
+                                                onClick={(e) => e.stopPropagation()}
+                                                value={project.status}
+                                                onChange={(e) => handleUpdateStatus(e, project.id, e.target.value)}
+                                                className={`text-xs px-2 py-1 rounded-md font-medium cursor-pointer border-0 ${getStatusColor(project.status)}`}
+                                            >
+                                                <option value="processing">Processing</option>
+                                                <option value="ready">Ready</option>
+                                                <option value="in-progress">In Progress</option>
+                                                <option value="review">In Review</option>
+                                                <option value="submitted">Submitted</option>
+                                                <option value="approved">Approved</option>
+                                            </select>
                                         </div>
 
                                         {project.client && (
