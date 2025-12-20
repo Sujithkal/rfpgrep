@@ -31,10 +31,10 @@ export const PLAN_LIMITS = {
     },
     enterprise: {
         projects: -1, // Unlimited
-        aiGenerationsPerMonth: -1,
-        exportsPerMonth: -1,
-        teamMembers: -1,
-        storageGB: 100
+        aiGenerationsPerMonth: -1, // Unlimited
+        exportsPerMonth: -1, // Unlimited
+        teamMembers: -1, // Unlimited
+        storageGB: 50
     }
 };
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { updateUserProfile, logout } from '../services/authService';
+import { PLAN_LIMITS } from '../services/usageLimitsService';
 
 export default function SettingsPage() {
     const { user, userData, refreshUserData } = useAuth();
@@ -158,13 +159,13 @@ export default function SettingsPage() {
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-600">Storage Used</span>
                                 <span className="font-semibold text-gray-900">
-                                    {((userData?.usage?.storageUsedMB || 0) / 1024).toFixed(2)} GB / {((userData?.settings?.maxStorage || 5000) / 1024)} GB
+                                    {((userData?.usage?.storageUsedMB || 0) / 1024).toFixed(2)} GB / {(PLAN_LIMITS[userData?.plan] || PLAN_LIMITS.free).storageGB} GB
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-gray-600">AI Actions Used</span>
                                 <span className="font-semibold text-gray-900">
-                                    {userData?.usage?.aiCallsMade || 0} / {userData?.settings?.aiActionsPerMonth || 50}
+                                    {userData?.usage?.aiCallsMade || 0} / {(PLAN_LIMITS[userData?.plan] || PLAN_LIMITS.free).aiGenerationsPerMonth === -1 ? 'Unlimited' : (PLAN_LIMITS[userData?.plan] || PLAN_LIMITS.free).aiGenerationsPerMonth}
                                 </span>
                             </div>
                         </div>
