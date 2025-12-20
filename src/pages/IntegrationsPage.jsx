@@ -467,8 +467,8 @@ export default function IntegrationsPage() {
                         </div>
 
                         {/* What's Included */}
-                        <div className="bg-white rounded-xl p-6 border border-gray-200">
-                            <h4 className="font-semibold text-gray-900 mb-4">📋 Export Includes:</h4>
+                        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
+                            <h4 className="font-semibold text-gray-900 dark:text-white mb-4">📋 Export Includes:</h4>
                             <div className="grid md:grid-cols-2 gap-3">
                                 {[
                                     'Project name & description',
@@ -480,7 +480,7 @@ export default function IntegrationsPage() {
                                     'Created & updated dates',
                                     'Section breakdowns'
                                 ].map((item, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-gray-600">
+                                    <div key={i} className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
                                         <span className="text-green-500">✓</span>
                                         <span>{item}</span>
                                     </div>
@@ -489,12 +489,12 @@ export default function IntegrationsPage() {
                         </div>
 
                         {/* Enterprise Note */}
-                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200">
-                            <h4 className="font-semibold text-gray-900 mb-2">🔗 Need Direct API Integration?</h4>
-                            <p className="text-gray-600 text-sm mb-3">
+                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl p-6 border border-indigo-200 dark:border-indigo-700">
+                            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">🔗 Need Direct API Integration?</h4>
+                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">
                                 Enterprise customers can get custom API integrations with automatic sync to your CRM/ERP.
                             </p>
-                            <Link to="/pricing" className="text-indigo-600 font-medium hover:text-indigo-700">
+                            <Link to="/pricing" className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300">
                                 View Enterprise Plan →
                             </Link>
                         </div>
