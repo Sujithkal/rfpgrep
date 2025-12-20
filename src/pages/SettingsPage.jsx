@@ -16,7 +16,6 @@ export default function SettingsPage() {
     const [error, setError] = useState('');
 
     // Local state for toggles - enables instant UI response
-    const [gamificationEnabled, setGamificationEnabled] = useState(userData?.settings?.gamificationEnabled !== false);
     const [emailNotifications, setEmailNotifications] = useState(userData?.settings?.emailNotifications || false);
     const [autoExport, setAutoExport] = useState(userData?.settings?.autoExport || false);
     const [autoApplyTemplate, setAutoApplyTemplate] = useState(userData?.settings?.autoApplyTemplate || false);
@@ -24,7 +23,6 @@ export default function SettingsPage() {
     // Sync local state when userData changes
     useEffect(() => {
         if (userData?.settings) {
-            setGamificationEnabled(userData.settings.gamificationEnabled !== false);
             setEmailNotifications(userData.settings.emailNotifications || false);
             setAutoExport(userData.settings.autoExport || false);
             setAutoApplyTemplate(userData.settings.autoApplyTemplate || false);
@@ -176,40 +174,6 @@ export default function SettingsPage() {
                         <h2 className="text-xl font-bold text-gray-900 mb-6">Preferences</h2>
 
                         <div className="space-y-6">
-                            {/* Gamification Toggle */}
-                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                <div>
-                                    <p className="font-semibold text-gray-900">Gamification</p>
-                                    <p className="text-sm text-gray-500">Show badges, points, and leaderboards</p>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        // Optimistic UI update - instant response
-                                        const newValue = !gamificationEnabled;
-                                        setGamificationEnabled(newValue);
-
-                                        // Update Firestore in background
-                                        updateUserProfile(user.uid, {
-                                            'settings.gamificationEnabled': newValue
-                                        }).then(() => {
-                                            refreshUserData();
-                                            setSuccess(newValue ? 'Gamification enabled!' : 'Gamification disabled');
-                                            setTimeout(() => setSuccess(''), 3000);
-                                        }).catch(() => {
-                                            // Revert on error
-                                            setGamificationEnabled(!newValue);
-                                            setError('Failed to update setting');
-                                        });
-                                    }}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${gamificationEnabled ? 'bg-indigo-600' : 'bg-gray-300'
-                                        }`}
-                                >
-                                    <span
-                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out ${gamificationEnabled ? 'translate-x-6' : 'translate-x-1'
-                                            }`}
-                                    />
-                                </button>
-                            </div>
 
                             {/* Email Notifications Toggle */}
                             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
