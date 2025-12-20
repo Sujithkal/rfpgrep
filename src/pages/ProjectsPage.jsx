@@ -59,9 +59,12 @@ export default function ProjectsPage() {
     const filteredProjects = projects.filter(project => {
         // Apply status filter
         if (filter !== 'all') {
-            if (filter === 'active' && project.status !== 'in-progress') return false;
-            if (filter === 'review' && project.status !== 'review') return false;
-            if (filter === 'submitted' && project.status !== 'submitted') return false;
+            // Active includes: processing, ready, in-progress, draft
+            if (filter === 'active' && !['processing', 'ready', 'in-progress', 'draft'].includes(project.status)) return false;
+            // Review includes: review, in_review
+            if (filter === 'review' && !['review', 'in_review'].includes(project.status)) return false;
+            // Submitted includes: submitted, approved
+            if (filter === 'submitted' && !['submitted', 'approved'].includes(project.status)) return false;
         }
 
         // Apply search filter
