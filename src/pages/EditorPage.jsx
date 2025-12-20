@@ -513,7 +513,7 @@ export default function EditorPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
+            <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
             </div>
         );
@@ -521,27 +521,27 @@ export default function EditorPage() {
 
     if (!rfp) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-gray-50">
-                <div className="text-gray-500">Project not found or failed to load.</div>
+            <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+                <div className="text-gray-500 dark:text-gray-400">Project not found or failed to load.</div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+            <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 shadow-sm">
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <Link to="/dashboard">
-                                <button className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors">
+                                <button className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors">
                                     ← Back
                                 </button>
                             </Link>
                             <div>
-                                <h1 className="text-lg font-bold text-gray-900">{rfp?.name || "RFP Editor"}</h1>
-                                <p className="text-sm text-gray-500">
+                                <h1 className="text-lg font-bold text-gray-900 dark:text-white">{rfp?.name || "RFP Editor"}</h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
                                     {answeredCount}/{totalQuestions} answered • {progressPercent}% complete
                                 </p>
                             </div>
@@ -601,7 +601,7 @@ export default function EditorPage() {
                                         setSearchQuery(e.target.value);
                                         setCurrentPage(1); // Reset to first page on search
                                     }}
-                                    className="w-64 px-4 py-2 bg-gray-100 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    className="w-64 px-4 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                                 />
                                 {searchQuery && (
                                     <button
@@ -717,7 +717,7 @@ export default function EditorPage() {
                         return (
                             <div
                                 key={`${question.sectionIndex}-${question.questionIndex}`}
-                                className={`bg-white rounded-xl border-2 ${question.response ? 'border-green-200' : 'border-orange-200'} p-5 shadow-sm hover:shadow-md transition-shadow`}
+                                className={`bg-white dark:bg-gray-800 rounded-xl border-2 ${question.response ? 'border-green-200 dark:border-green-700' : 'border-orange-200 dark:border-orange-700'} p-5 shadow-sm hover:shadow-md transition-shadow`}
                             >
                                 {/* Question Header */}
                                 <div className="flex items-start justify-between gap-4 mb-3">
@@ -739,7 +739,7 @@ export default function EditorPage() {
 
                                             {/* Status Dropdown */}
                                             {statusDropdownIndex === globalIndex && question.response && (
-                                                <div className="absolute left-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 min-w-[140px]">
+                                                <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[140px]">
                                                     {WORKFLOW_STATUSES.map(ws => (
                                                         <button
                                                             key={ws.id}
@@ -754,7 +754,7 @@ export default function EditorPage() {
                                                     ))}
                                                 </div>
                                             )}
-                                            <span className="text-xs text-gray-400 ml-2">{question.sectionName}</span>
+                                            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{question.sectionName}</span>
                                         </div>
                                     </div>
 
@@ -814,7 +814,7 @@ export default function EditorPage() {
                                                             {translating === globalIndex ? '⏳' : '🌐'} Translate
                                                         </button>
                                                         {showTranslateMenu === globalIndex && (
-                                                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50 min-w-[150px] max-h-48 overflow-y-auto">
+                                                            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[150px] max-h-48 overflow-y-auto">
                                                                 {LANGUAGES.slice(0, 8).map(lang => (
                                                                     <button
                                                                         key={lang.code}
@@ -835,7 +835,7 @@ export default function EditorPage() {
                                 </div>
 
                                 {/* Question Text */}
-                                <h3 className="text-sm font-semibold text-gray-900 mb-3 leading-relaxed">
+                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 leading-relaxed">
                                     {question.text}
                                 </h3>
 
@@ -865,7 +865,7 @@ export default function EditorPage() {
                                     </div>
                                 ) : question.response ? (
                                     <>
-                                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap border border-gray-200">
+                                        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-lg p-4 text-sm text-gray-700 dark:text-gray-100 leading-relaxed whitespace-pre-wrap border border-gray-200 dark:border-gray-600">
                                             {question.response}
                                         </div>
 
