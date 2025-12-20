@@ -5,6 +5,7 @@ service cloud.firestore {
     
     // ===============================================
     // SECURE FIRESTORE RULES - PRODUCTION READY
+    // Enhanced with data validation and security checks
     // ===============================================
 
     // Helper function to check if user is authenticated
@@ -17,19 +18,62 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Helper function to validate string length
+    function validStringLength(field, maxLen) {
+      return field is string && field.size() <= maxLen;
+    }
+
+    // Helper function to validate timestamp
+    function validTimestamp(field) {
+      return field is timestamp;
+    }
+
+    // ===============================================
+    // RATE LIMITING COLLECTION (used by Cloud Functions)
+    // ===============================================
+    match /rateLimits/{userId} {
+      // Only the user can read their own rate limit
+      allow read: if isOwner(userId);
+      // Only Cloud Functions can write (via admin SDK)
+      allow write: if false;
+    }
+
+    // ===============================================
+    // SECURITY LOGS (admin only - Cloud Functions)
+    // ===============================================
+    match /securityLogs/{logId} {
+      allow read, write: if false;
+    }
+
     // ===============================================
     // USER DATA
     // ===============================================
     match /users/{userId} {
-      // Users can read and update their own profile
+      // Users can read their own profile
       allow read: if isOwner(userId);
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isOwner(userId);
+      
+      // Users can create their own profile
+      allow create: if isAuthenticated() 
+        && request.auth.uid == userId
+        && validStringLength(request.resource.data.email, 254)
+        && validStringLength(request.resource.data.displayName, 100);
+      
+      // Users can update their profile with validation
+      allow update: if isOwner(userId)
+        && (!('email' in request.resource.data) || validStringLength(request.resource.data.email, 254))
+        && (!('displayName' in request.resource.data) || validStringLength(request.resource.data.displayName, 100));
+      
+      // Users cannot delete their profile (admin only)
       allow delete: if false;
       
       // User's projects subcollection
       match /projects/{projectId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && validStringLength(request.resource.data.name, 200)
+          && validStringLength(request.resource.data.client, 200);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
       }
       
       // User's standalone RFPs (for migration)
@@ -39,12 +83,31 @@ service cloud.firestore {
       
       // User's team subcollection
       match /team/{memberId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && validStringLength(request.resource.data.email, 254);
+        allow update, delete: if isOwner(userId);
       }
       
       // User's answer library
       match /answers/{answerId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && validStringLength(request.resource.data.question, 5000)
+          && validStringLength(request.resource.data.answer, 10000);
+        allow update, delete: if isOwner(userId);
+      }
+
+      // User's knowledge chunks
+      match /knowledgeChunks/{chunkId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only Cloud Functions write
+      }
+
+      // User's knowledge metadata
+      match /knowledgeMeta/{metaId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only Cloud Functions write
       }
     }
 

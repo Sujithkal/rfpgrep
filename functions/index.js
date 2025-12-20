@@ -7,6 +7,14 @@ const pdfParse = require('pdf-parse');
 const XLSX = require('xlsx');
 const mammoth = require('mammoth');
 const { Resend } = require('resend');
+const {
+    checkRateLimit,
+    consumeRateLimitBatch,
+    checkPromptInjection,
+    sanitizeForPrompt,
+    wrapUserContent,
+    logSecurityEvent
+} = require('./security');
 
 admin.initializeApp();
 
@@ -22,22 +30,41 @@ const getGenAI = () => new GoogleGenerativeAI(geminiApiKey.value());
 
 /**
  * Cloud Function: Generate AI Response
+ * Rate limited: 20 requests/minute per user with burst allowance
  */
 exports.generateAIResponse = onCall(async (request) => {
     if (!request.auth) {
-        throw new Error('User must be authenticated.');
+        throw new HttpsError('unauthenticated', 'User must be authenticated.');
     }
 
     const userId = request.auth.uid;
     const { questionText, knowledgeBase = [], tone = 'professional', actionType = 'generate' } = request.data;
 
     if (!questionText) {
-        throw new Error('Question text is required.');
+        throw new HttpsError('invalid-argument', 'Question text is required.');
     }
 
+    // Rate limit check
+    const rateLimit = await checkRateLimit(userId, 'generateAIResponse');
+    if (!rateLimit.allowed) {
+        await logSecurityEvent('rate_limit_exceeded', { userId, endpoint: 'generateAIResponse' });
+        throw new HttpsError('resource-exhausted',
+            `Rate limit exceeded. Try again in ${Math.ceil(rateLimit.resetIn / 1000)} seconds. Remaining: ${rateLimit.remaining}`);
+    }
+
+    // Prompt injection check
+    const injectionCheck = checkPromptInjection(questionText);
+    if (!injectionCheck.safe) {
+        await logSecurityEvent('prompt_injection_attempt', { userId, reason: injectionCheck.reason });
+        throw new HttpsError('invalid-argument', 'Input contains invalid content. Please rephrase your question.');
+    }
+
+    // Sanitize user input
+    const sanitizedQuestion = sanitizeForPrompt(questionText, 5000);
+
     try {
-        // Build prompt
-        const prompt = buildPrompt(questionText, knowledgeBase, tone, actionType);
+        // Build prompt with sanitized input
+        const prompt = buildPrompt(sanitizedQuestion, knowledgeBase, tone, actionType);
 
         // Call Gemini API with 2024 stable model (v2.0 - updated Dec 16, 2025)
         const genAI = getGenAI();
@@ -60,11 +87,13 @@ exports.generateAIResponse = onCall(async (request) => {
             success: true,
             response: generatedText,
             trustScore: trustScore,
-            citations: citations
+            citations: citations,
+            rateLimitRemaining: rateLimit.remaining
         };
     } catch (error) {
         console.error('AI Error:', error);
-        throw new HttpsError('internal', 'Failed to generate response.');
+        // Don't expose internal error details
+        throw new HttpsError('internal', 'Failed to generate response. Please try again.');
     }
 });
 
@@ -286,6 +315,7 @@ function extractSectionsFromText(text) {
 /**
  * Cloud Function: Batch Generate AI Responses
  * Processes multiple questions with rate limiting
+ * Respects 20 requests/minute per user limit
  */
 exports.batchGenerateResponses = onCall({
     timeoutSeconds: 540,  // 9 minutes max
@@ -302,7 +332,34 @@ exports.batchGenerateResponses = onCall({
         throw new HttpsError('invalid-argument', 'Questions array is required.');
     }
 
-    console.log(`Batch processing ${questions.length} questions for user ${userId}`);
+    // Rate limit check - consume slots for batch
+    const rateLimit = await consumeRateLimitBatch(userId, questions.length);
+    if (!rateLimit.allowed) {
+        await logSecurityEvent('rate_limit_exceeded', {
+            userId,
+            endpoint: 'batchGenerateResponses',
+            requested: questions.length
+        });
+        throw new HttpsError('resource-exhausted',
+            'Rate limit exceeded. Please try again in a minute or reduce the number of questions.');
+    }
+
+    // Only process allowed number of questions
+    const questionsToProcess = questions.slice(0, rateLimit.allowedCount);
+    if (questionsToProcess.length < questions.length) {
+        console.log(`Rate limited: processing ${questionsToProcess.length}/${questions.length} questions`);
+    }
+
+    // Check for prompt injection in project context
+    if (projectContext) {
+        const contextCheck = checkPromptInjection(projectContext);
+        if (!contextCheck.safe) {
+            await logSecurityEvent('prompt_injection_attempt', { userId, reason: contextCheck.reason });
+            throw new HttpsError('invalid-argument', 'Project context contains invalid content.');
+        }
+    }
+
+    console.log(`Batch processing ${questionsToProcess.length} questions for user ${userId}`);
 
     const responses = [];
     const BATCH_SIZE = 5;
@@ -313,10 +370,10 @@ exports.batchGenerateResponses = onCall({
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
         // Process in batches
-        for (let i = 0; i < questions.length; i += BATCH_SIZE) {
-            const batch = questions.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < questionsToProcess.length; i += BATCH_SIZE) {
+            const batch = questionsToProcess.slice(i, i + BATCH_SIZE);
 
-            console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}, questions ${i + 1} to ${Math.min(i + BATCH_SIZE, questions.length)}`);
+            console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}, questions ${i + 1} to ${Math.min(i + BATCH_SIZE, questionsToProcess.length)}`);
 
             // Process each question in the batch
             for (const question of batch) {
