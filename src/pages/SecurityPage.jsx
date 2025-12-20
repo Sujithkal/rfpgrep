@@ -67,18 +67,50 @@ export default function SecurityPage() {
 
                 {/* Certifications */}
                 <section className="mb-16">
-                    <h2 className="text-3xl font-bold text-white mb-6">Compliance & Certifications</h2>
+                    <h2 className="text-3xl font-bold text-white mb-6">Security Standards</h2>
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
+                        <p className="text-yellow-300 text-sm">
+                            <strong>⚠️ Transparency Note:</strong> We follow security best practices aligned with industry standards.
+                            We have not yet completed formal SOC 2 or ISO 27001 certification audits.
+                        </p>
+                    </div>
                     <div className="grid md:grid-cols-3 gap-6">
                         {[
-                            { title: 'GDPR', desc: 'EU data protection compliant' },
-                            { title: 'SOC 2', desc: 'Type II certified (in progress)' },
-                            { title: 'ISO 27001', desc: 'Information security (planned)' },
+                            { title: 'GDPR Ready', desc: 'EU data protection compliant' },
+                            { title: 'SOC 2 Aligned', desc: 'Security practices aligned with SOC 2 standards' },
+                            { title: 'ISO 27001 Aligned', desc: 'Controls aligned with ISO/IEC 27001 framework' },
                         ].map((cert, i) => (
                             <div key={i} className="bg-white/5 rounded-lg p-6 text-center border border-white/10">
                                 <h3 className="text-xl font-bold text-indigo-400 mb-2">{cert.title}</h3>
                                 <p className="text-white/60 text-sm">{cert.desc}</p>
                             </div>
                         ))}
+                    </div>
+                </section>
+
+                {/* Responsible Disclosure */}
+                <section className="mb-16">
+                    <h2 className="text-3xl font-bold text-white mb-6">Security Reporting</h2>
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+                        <div className="flex items-start gap-4">
+                            <span className="text-3xl">🛡️</span>
+                            <div>
+                                <h3 className="text-xl font-bold text-white mb-3">Responsible Disclosure</h3>
+                                <p className="text-white/70 mb-4">
+                                    We take security seriously. If you discover a vulnerability, please report it responsibly.
+                                </p>
+                                <div className="bg-white/5 rounded-lg p-4 mb-4">
+                                    <p className="text-white/80"><strong>Report to:</strong> <a href="mailto:security@rfpgrep.com" className="text-indigo-400 hover:underline">security@rfpgrep.com</a></p>
+                                </div>
+                                <p className="text-white/70 mb-2">
+                                    Please include a detailed description of the issue and steps to reproduce.
+                                    We'll respond within 48 hours and work with you to address valid reports.
+                                </p>
+                                <p className="text-white/50 text-sm mt-4">
+                                    We appreciate researchers who help us keep our platform secure.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </section>
 

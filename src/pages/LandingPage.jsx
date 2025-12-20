@@ -531,6 +531,8 @@ export default function LandingPage() {
                                 links: [
                                     { name: 'Privacy', path: '/privacy' },
                                     { name: 'Terms', path: '/terms' },
+                                    { name: 'Acceptable Use', path: '/aup' },
+                                    { name: 'DPA', path: '/dpa' },
                                     { name: 'Compliance', path: '/compliance' },
                                     { name: 'Refunds', path: '/refund' }
                                 ]

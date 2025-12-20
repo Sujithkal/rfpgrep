@@ -38,6 +38,8 @@ import BrandingPage from './pages/BrandingPage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import TrialSignupPage from './pages/TrialSignupPage';
+import AUPPage from './pages/AUPPage';
+import DPAPage from './pages/DPAPage';
 import './index.css';
 
 function App() {
@@ -98,6 +100,9 @@ function App() {
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/docs" element={<DocsPage />} />
               <Route path="/trial-signup" element={<TrialSignupPage />} />
+              <Route path="/aup" element={<AUPPage />} />
+              <Route path="/acceptable-use" element={<AUPPage />} />
+              <Route path="/dpa" element={<DPAPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Router>
