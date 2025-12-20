@@ -40,6 +40,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import TrialSignupPage from './pages/TrialSignupPage';
 import AUPPage from './pages/AUPPage';
 import DPAPage from './pages/DPAPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import './index.css';
 
 function App() {
@@ -67,6 +68,7 @@ function App() {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/project" element={<ProjectIndexPage />} />
