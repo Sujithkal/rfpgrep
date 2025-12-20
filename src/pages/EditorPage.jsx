@@ -310,20 +310,38 @@ export default function EditorPage() {
             const mockResult = generateMockResponse(question.text);
 
             const updatedRfp = JSON.parse(JSON.stringify(rfp));
-            updatedRfp.sections[question.sectionIndex].questions[question.questionIndex] = {
-                ...updatedRfp.sections[question.sectionIndex].questions[question.questionIndex],
-                response: mockResult.response,
-                status: 'generated',
-                workflowStatus: 'draft', // Reset to draft after regeneration
-                trustScore: mockResult.trustScore
+            const currentQuestion = updatedRfp.sections[question.sectionIndex].questions[question.questionIndex];
+
+            // Save current version to history before overwriting
+            const newVersion = {
+                id: `v_${Date.now()}`,
+                content: currentQuestion.response,
+                editedAt: new Date().toISOString(),
+                editedBy: { name: userData?.displayName || user?.email || 'User', uid: user?.uid },
+                changeType: currentQuestion.status || 'generated',
+                trustScore: currentQuestion.trustScore
             };
+
+            // Only add to versions if there was a previous response
+            if (currentQuestion.response) {
+                currentQuestion.versions = [...(currentQuestion.versions || []), newVersion];
+            }
+
+            // Update with new response
+            currentQuestion.response = mockResult.response;
+            currentQuestion.status = 'generated';
+            currentQuestion.workflowStatus = 'draft';
+            currentQuestion.trustScore = mockResult.trustScore;
+            currentQuestion.lastEditedAt = new Date().toISOString();
 
             if (projectId && user?.uid) {
                 await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
                     response: mockResult.response,
                     status: 'generated',
                     workflowStatus: 'draft',
-                    trustScore: mockResult.trustScore
+                    trustScore: mockResult.trustScore,
+                    versions: currentQuestion.versions,
+                    lastEditedAt: currentQuestion.lastEditedAt
                 });
                 // Track AI usage
                 await incrementUsage(user.uid, 'aiResponse');
@@ -344,13 +362,32 @@ export default function EditorPage() {
 
         try {
             const updatedRfp = JSON.parse(JSON.stringify(rfp));
-            updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].response = editText;
-            updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].status = 'edited';
+            const currentQuestion = updatedRfp.sections[question.sectionIndex].questions[question.questionIndex];
+
+            // Only save to history if the text actually changed
+            if (currentQuestion.response && currentQuestion.response !== editText) {
+                const newVersion = {
+                    id: `v_${Date.now()}`,
+                    content: currentQuestion.response,
+                    editedAt: new Date().toISOString(),
+                    editedBy: { name: userData?.displayName || user?.email || 'User', uid: user?.uid },
+                    changeType: currentQuestion.status || 'draft',
+                    trustScore: currentQuestion.trustScore
+                };
+                currentQuestion.versions = [...(currentQuestion.versions || []), newVersion];
+            }
+
+            // Update with new content
+            currentQuestion.response = editText;
+            currentQuestion.status = 'edited';
+            currentQuestion.lastEditedAt = new Date().toISOString();
 
             if (projectId && user?.uid) {
                 await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
                     response: editText,
-                    status: 'edited'
+                    status: 'edited',
+                    versions: currentQuestion.versions,
+                    lastEditedAt: currentQuestion.lastEditedAt
                 });
             }
 
