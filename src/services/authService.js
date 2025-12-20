@@ -10,7 +10,8 @@ import {
     signInWithPopup
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { httpsCallable } from 'firebase/functions';
+import { auth, db, functions } from './firebase';
 
 // Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
@@ -64,6 +65,15 @@ export const signUp = async (email, password, displayName, company) => {
                 aiCallsMade: 0
             }
         });
+
+        // Send welcome email via Cloud Function
+        try {
+            const sendWelcomeEmail = httpsCallable(functions, 'sendWelcomeEmail');
+            await sendWelcomeEmail({ email, name: displayName });
+        } catch (emailError) {
+            console.warn('Welcome email failed:', emailError);
+            // Don't fail signup if email fails
+        }
 
         return { success: true, user };
     } catch (error) {
@@ -168,6 +178,14 @@ export const signInWithGoogle = async () => {
                     aiCallsMade: 0
                 }
             });
+
+            // Send welcome email for new Google users
+            try {
+                const sendWelcomeEmail = httpsCallable(functions, 'sendWelcomeEmail');
+                await sendWelcomeEmail({ email: user.email, name: user.displayName });
+            } catch (emailError) {
+                console.warn('Welcome email failed:', emailError);
+            }
         }
 
         // Google accounts are already verified
