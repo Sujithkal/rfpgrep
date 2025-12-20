@@ -290,7 +290,7 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Add New Prompt */}
-                        <div className="p-4 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg border border-indigo-200 dark:border-indigo-700">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                             <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Add New Prompt</h3>
                             <div className="space-y-3">
                                 <input
