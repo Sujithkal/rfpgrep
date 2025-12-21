@@ -175,7 +175,7 @@ export const checkPlanLimits = (userData, limitType) => {
 
     switch (limitType) {
         case 'projects':
-            if (limits.projectsPerMonth === -1) return { allowed: true };
+            if (limits.projectsPerMonth === -1) return { allowed: true, limit: -1 };
             return {
                 allowed: (usage.projectsThisMonth || 0) < limits.projectsPerMonth,
                 current: usage.projectsThisMonth || 0,
@@ -183,7 +183,7 @@ export const checkPlanLimits = (userData, limitType) => {
             };
 
         case 'aiResponses':
-            if (limits.aiResponsesPerMonth === -1) return { allowed: true };
+            if (limits.aiResponsesPerMonth === -1) return { allowed: true, limit: -1 };
             return {
                 allowed: (usage.aiCallsMade || 0) < limits.aiResponsesPerMonth,
                 current: usage.aiCallsMade || 0,
@@ -191,7 +191,7 @@ export const checkPlanLimits = (userData, limitType) => {
             };
 
         case 'teamMembers':
-            if (limits.teamMembers === -1) return { allowed: true };
+            if (limits.teamMembers === -1) return { allowed: true, limit: -1 };
             return {
                 allowed: (usage.teamMemberCount || 0) < limits.teamMembers,
                 current: usage.teamMemberCount || 0,
@@ -206,7 +206,7 @@ export const checkPlanLimits = (userData, limitType) => {
             };
 
         default:
-            return { allowed: true };
+            return { allowed: true, limit: -1 };
     }
 };
 

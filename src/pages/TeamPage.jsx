@@ -104,7 +104,7 @@ export default function TeamPage() {
                             </div>
                         </div>
                         <div className="text-sm text-gray-500">
-                            {teamLimit.limit === -1 ? '∞' : `${members.length}/${teamLimit.limit}`} members
+                            {(teamLimit?.limit === -1 || teamLimit?.limit === undefined) ? '∞' : `${members.length}/${teamLimit.limit}`} members
                         </div>
                     </div>
                 </div>
