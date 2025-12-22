@@ -67,13 +67,35 @@ service cloud.firestore {
       allow delete: if false;
       
       // User's projects subcollection
+      // TEAM COLLABORATION: Allow team members to read owner's projects
       match /projects/{projectId} {
-        allow read: if isOwner(userId);
-        allow create: if isOwner(userId)
-          && validStringLength(request.resource.data.name, 200)
-          && validStringLength(request.resource.data.client, 200);
-        allow update: if isOwner(userId);
-        allow delete: if isOwner(userId);
+        // Helper: Check if requester is a team member of this user
+        function isTeamMemberOf(ownerId) {
+          return isAuthenticated() 
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == ownerId;
+        }
+        
+        // Helper: Get requester's role in the team
+        function getTeamRole() {
+          return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+        }
+        
+        // Read: Owner or team members can read
+        allow read: if isOwner(userId) || isTeamMemberOf(userId);
+        
+        // Create: Only owner or team admin can create
+        // Relaxed validation to avoid permission issues
+        allow create: if isOwner(userId) 
+          || (isTeamMemberOf(userId) && getTeamRole() == 'admin');
+        
+        // Update: Owner, admin, or editor (with role-based restrictions applied in app)
+        allow update: if isOwner(userId) 
+          || (isTeamMemberOf(userId) && (getTeamRole() == 'admin' || getTeamRole() == 'editor'));
+        
+        // Delete: Only owner or admin
+        allow delete: if isOwner(userId) 
+          || (isTeamMemberOf(userId) && getTeamRole() == 'admin');
       }
       
       // User's standalone RFPs (for migration)

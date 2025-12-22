@@ -5,6 +5,7 @@ import { getRFPDetail } from '../services/rfpService';
 import { getProject, updateProjectQuestion, batchUpdateQuestions } from '../services/projectService';
 import { exportToPDF, exportToWord } from '../services/exportService';
 import { getSuggestedAnswers, incrementUsageCount } from '../services/answerLibraryService';
+import { generateAIResponse } from '../services/aiGenerationService';
 import { calculateTrustScore, getTrustScoreBadge } from '../services/trustScoreService';
 import { subscribeToPresence, updatePresence, removePresence, formatPresenceList } from '../services/presenceService';
 import { reviewAnswer, getQualityScore, getQualityBadge } from '../services/aiReviewService';
@@ -15,7 +16,7 @@ import VersionHistoryModal from '../components/VersionHistoryModal';
 import CommentThread from '../components/CommentThread';
 
 export default function EditorPage() {
-    const { userData, user } = useAuth();
+    const { userData, user, effectiveTeamId, canEdit, canApprove, teamRole, isTeamMember } = useAuth();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const rfpId = searchParams.get('rfpId');
@@ -65,6 +66,16 @@ export default function EditorPage() {
     // AI Review cache
     const [aiReviews, setAiReviews] = useState({}); // { questionIndex: { issues, score, badge } }
 
+    // Team collaboration - assignment
+    const [teamMembers, setTeamMembers] = useState([]);
+    const [showAssignDropdown, setShowAssignDropdown] = useState(null); // question index
+    const [assigningQuestion, setAssigningQuestion] = useState(null);
+
+    // Distribution modal state
+    const [showDistributionModal, setShowDistributionModal] = useState(false);
+    const [selectedEditors, setSelectedEditors] = useState([]); // emails of selected editors
+    const [distributing, setDistributing] = useState(false);
+
     // Global search state
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
@@ -100,11 +111,14 @@ export default function EditorPage() {
             try {
                 setLoading(true);
                 console.log('EditorPage: URL params:', { projectId, rfpId });
-                console.log('EditorPage: User info:', { uid: user?.uid, teamId: userData?.teamId });
+                console.log('EditorPage: User info:', { uid: user?.uid, teamId: userData?.teamId, effectiveTeamId });
 
-                if (projectId && user?.uid) {
-                    console.log('EditorPage: USING PROJECT PATH - Loading project:', projectId);
-                    const projectData = await getProject(user.uid, projectId);
+                // TEAM COLLABORATION: Use effectiveTeamId for team members
+                const ownerId = effectiveTeamId || user?.uid;
+
+                if (projectId && ownerId) {
+                    console.log('EditorPage: Loading project:', projectId, 'from owner:', ownerId);
+                    const projectData = await getProject(ownerId, projectId);
                     console.log('EditorPage: Project loaded successfully', projectData?.name);
                     setRfp(projectData);
                 } else if (rfpId && userData?.teamId) {
@@ -124,10 +138,87 @@ export default function EditorPage() {
         };
 
         // Wait for user to be loaded
-        if (user) {
+        if (user && (effectiveTeamId || userData)) {
             fetchData();
         }
-    }, [userData, user, rfpId, projectId]);
+    }, [userData, user, rfpId, projectId, effectiveTeamId]);
+
+    // TEAM COLLABORATION: Fetch team members for assignment dropdown
+    useEffect(() => {
+        const fetchTeamMembers = async () => {
+            if (!effectiveTeamId || !canApprove) return; // Only admins/owners can assign
+
+            try {
+                const { getTeamMembers } = await import('../services/teamService');
+                const members = await getTeamMembers(effectiveTeamId);
+                setTeamMembers(members.filter(m => m.status === 'active' || !m.status));
+            } catch (error) {
+                console.error('Failed to fetch team members:', error);
+            }
+        };
+
+        fetchTeamMembers();
+    }, [effectiveTeamId, canApprove]);
+
+    // Handle question assignment
+    const handleAssignQuestion = async (globalIndex, assigneeEmail) => {
+        const question = allQuestions[globalIndex];
+        if (!question) return;
+
+        // Check if already assigned to someone else - require confirmation
+        if (question.assignedTo && question.assignedTo !== assigneeEmail && assigneeEmail !== null) {
+            const currentAssignee = question.assignedTo.split('@')[0];
+            const newAssignee = assigneeEmail.split('@')[0];
+            const confirmReassign = window.confirm(
+                `⚠️ This question is already assigned to "${currentAssignee}".\n\nReassign to "${newAssignee}"?`
+            );
+            if (!confirmReassign) {
+                setShowAssignDropdown(null);
+                return;
+            }
+        }
+
+        setAssigningQuestion(globalIndex);
+        try {
+            const { assignQuestionToMember } = await import('../services/questionStatusService');
+            const { notifyQuestionAssigned } = await import('../services/notificationService');
+
+            await assignQuestionToMember(
+                effectiveTeamId || user.uid,
+                projectId,
+                question.sectionIndex,
+                question.questionIndex,
+                assigneeEmail,
+                user.email
+            );
+
+            // Update local state
+            const updatedRfp = JSON.parse(JSON.stringify(rfp));
+            updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].assignedTo = assigneeEmail;
+            updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].assignedBy = user.email;
+            setRfp(updatedRfp);
+
+            // Send notification (find user ID from team members)
+            const assignee = teamMembers.find(m => m.email?.toLowerCase() === assigneeEmail?.toLowerCase());
+            if (assignee?.id) {
+                notifyQuestionAssigned(assignee.id, {
+                    questionText: question.text || question.question,
+                    projectName: rfp?.name,
+                    projectId,
+                    sectionIndex: question.sectionIndex,
+                    questionIndex: question.questionIndex,
+                    assignedBy: user.email
+                });
+            }
+
+            setShowAssignDropdown(null);
+        } catch (error) {
+            console.error('Assignment error:', error);
+            alert('Failed to assign question: ' + error.message);
+        } finally {
+            setAssigningQuestion(null);
+        }
+    };
 
     // Real-time sync listener for collaborative editing
     useEffect(() => {
@@ -211,88 +302,123 @@ export default function EditorPage() {
     const endIndex = Math.min(startIndex + QUESTIONS_PER_PAGE, totalQuestions);
     const currentPageQuestions = filteredQuestions.slice(startIndex, endIndex);
 
-    // AI response generator with real trust score
-    const generateMockResponse = (questionText) => {
-        const responses = [
-            "Based on our extensive experience in similar projects, our organization has successfully delivered over 50+ enterprise-level implementations. Our team consists of certified professionals with an average of 8+ years of industry experience, and we have maintained a 95% client satisfaction rate.\n\nOur approach combines industry best practices with innovative solutions tailored to specific requirements.",
-            "Our company has been a leader in this field for over 15 years, serving Fortune 500 clients across multiple industries. We bring deep domain expertise, technical excellence, and a commitment to delivering exceptional results.",
-            "We pride ourselves on our comprehensive understanding of industry requirements and regulatory compliance. Our qualified team members hold relevant certifications and undergo continuous training."
-        ];
-        const selectedResponse = responses[Math.floor(Math.random() * responses.length)];
+    // AI response generator with RAG integration
+    const generateResponse = async (questionText) => {
+        try {
+            // Use the new AI generation service with RAG
+            const result = await generateAIResponse(user.uid, questionText);
 
-        // Calculate real trust score based on response quality
-        const trustScoreResult = calculateTrustScore(selectedResponse, questionText, []);
-
-        return {
-            response: selectedResponse,
-            trustScore: trustScoreResult.score,
-            trustScoreDetails: trustScoreResult
-        };
+            return {
+                response: result.response,
+                trustScore: result.trustScore,
+                sources: result.sources || [],
+                usedAnswerLibrary: result.usedAnswerLibrary || false,
+                usedKnowledgeLibrary: result.usedKnowledgeLibrary || false
+            };
+        } catch (error) {
+            console.error('AI generation error:', error);
+            // Fallback to basic response
+            const fallbackResponse = "Our organization is well-equipped to address this requirement with our proven expertise and dedicated team.";
+            const trustScoreResult = calculateTrustScore(fallbackResponse, questionText, []);
+            return {
+                response: fallbackResponse,
+                trustScore: trustScoreResult.score,
+                sources: [],
+                error: error.message
+            };
+        }
     };
 
     // Batch Generate All Responses
     const handleGenerateAll = async () => {
         if (!rfp?.sections) return;
 
+        // Get questions that need generation
+        const questionsToGenerate = allQuestions.filter(q => !q.response);
+
+        if (questionsToGenerate.length === 0) {
+            alert('All questions already have responses!');
+            return;
+        }
+
         // Check AI generation limit before proceeding
+        let maxToGenerate = questionsToGenerate.length;
         if (user?.uid) {
             const limitCheck = await checkLimit(user.uid, 'generateResponse', userData);
-            if (!limitCheck.allowed) {
-                alert(`⚠️ AI Generation Limit Reached!\n\n${limitCheck.reason}\n\nPlease upgrade your plan to continue generating responses.`);
+
+            if (!limitCheck.allowed || limitCheck.remaining === 0) {
+                alert(`🚫 AI Generation Limit Reached!\n\n${limitCheck.reason}\n\nPlease upgrade your plan to continue generating responses.\n\n👉 Go to Settings → Billing to upgrade.`);
                 return;
+            }
+
+            // Cap the generation to remaining quota (for non-unlimited plans)
+            if (limitCheck.remaining !== Infinity && questionsToGenerate.length > limitCheck.remaining) {
+                const continuePartial = window.confirm(
+                    `⚠️ Quota Limit Warning\n\n` +
+                    `You want to generate ${questionsToGenerate.length} responses, but you only have ${limitCheck.remaining} AI generations remaining this month.\n\n` +
+                    `Would you like to generate ${limitCheck.remaining} responses now?\n\n` +
+                    `Click 'OK' to generate ${limitCheck.remaining} responses\nClick 'Cancel' to upgrade your plan first`
+                );
+
+                if (!continuePartial) {
+                    return;
+                }
+                maxToGenerate = limitCheck.remaining;
             }
         }
 
         setBatchGenerating(true);
 
-        const questionsToGenerate = allQuestions.filter(q => !q.response);
+        const questionsToProcess = questionsToGenerate.slice(0, maxToGenerate);
         const total = totalQuestions;
         const alreadyDone = total - questionsToGenerate.length;
-        setBatchProgress({ current: alreadyDone, total });
-
-        if (questionsToGenerate.length === 0) {
-            alert('All questions already have responses!');
-            setBatchGenerating(false);
-            return;
-        }
+        setBatchProgress({ current: alreadyDone, total: alreadyDone + questionsToProcess.length });
 
         try {
             const updatedRfp = JSON.parse(JSON.stringify(rfp));
             const updates = [];
 
-            for (let i = 0; i < questionsToGenerate.length; i++) {
-                const q = questionsToGenerate[i];
-                const mockResult = generateMockResponse(q.text);
+            for (let i = 0; i < questionsToProcess.length; i++) {
+                const q = questionsToProcess[i];
+                // Use new RAG-powered AI generation
+                const aiResult = await generateResponse(q.text || q.question);
 
                 updatedRfp.sections[q.sectionIndex].questions[q.questionIndex] = {
                     ...updatedRfp.sections[q.sectionIndex].questions[q.questionIndex],
-                    response: mockResult.response,
+                    response: aiResult.response,
                     status: 'generated',
-                    trustScore: mockResult.trustScore
+                    trustScore: aiResult.trustScore,
+                    sources: aiResult.sources || []
                 };
 
                 updates.push({
                     sectionIndex: q.sectionIndex,
                     questionIndex: q.questionIndex,
                     data: {
-                        response: mockResult.response,
+                        response: aiResult.response,
                         status: 'generated',
-                        trustScore: mockResult.trustScore
+                        trustScore: aiResult.trustScore,
+                        sources: aiResult.sources || []
                     }
                 });
 
-                setBatchProgress({ current: alreadyDone + i + 1, total });
-                await new Promise(resolve => setTimeout(resolve, 30));
+                setBatchProgress({ current: alreadyDone + i + 1, total: alreadyDone + questionsToProcess.length });
             }
 
             if (projectId && user?.uid) {
                 await batchUpdateQuestions(user.uid, projectId, updates);
                 // Track AI usage for all generated responses
-                await incrementUsage(user.uid, 'aiResponse', questionsToGenerate.length);
+                await incrementUsage(user.uid, 'aiResponse', questionsToProcess.length);
             }
 
             setRfp(updatedRfp);
-            alert(`Success! Generated ${questionsToGenerate.length} responses.`);
+
+            // Show appropriate message based on whether partial generation
+            if (questionsToProcess.length < questionsToGenerate.length) {
+                alert(`✅ Generated ${questionsToProcess.length} responses (quota limit reached).\n\n${questionsToGenerate.length - questionsToProcess.length} questions remain - upgrade to continue!`);
+            } else {
+                alert(`✅ Success! Generated ${questionsToProcess.length} responses.`);
+            }
         } catch (error) {
             console.error('Batch generation error:', error);
             alert(`Error generating responses: ${error.message}`);
@@ -326,7 +452,8 @@ export default function EditorPage() {
         setRegeneratingIndex(globalIndex);
 
         try {
-            const mockResult = generateMockResponse(question.text);
+            // Use new RAG-powered AI generation
+            const aiResult = await generateResponse(question.text || question.question);
 
             const updatedRfp = JSON.parse(JSON.stringify(rfp));
             const currentQuestion = updatedRfp.sections[question.sectionIndex].questions[question.questionIndex];
@@ -347,18 +474,20 @@ export default function EditorPage() {
             }
 
             // Update with new response
-            currentQuestion.response = mockResult.response;
+            currentQuestion.response = aiResult.response;
             currentQuestion.status = 'generated';
             currentQuestion.workflowStatus = 'draft';
-            currentQuestion.trustScore = mockResult.trustScore;
+            currentQuestion.trustScore = aiResult.trustScore;
+            currentQuestion.sources = aiResult.sources || [];
             currentQuestion.lastEditedAt = new Date().toISOString();
 
             if (projectId && user?.uid) {
                 await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
-                    response: mockResult.response,
+                    response: aiResult.response,
                     status: 'generated',
                     workflowStatus: 'draft',
-                    trustScore: mockResult.trustScore,
+                    trustScore: aiResult.trustScore,
+                    sources: aiResult.sources || [],
                     versions: currentQuestion.versions,
                     lastEditedAt: currentQuestion.lastEditedAt
                 });
@@ -396,17 +525,24 @@ export default function EditorPage() {
                 currentQuestion.versions = [...(currentQuestion.versions || []), newVersion];
             }
 
-            // Update with new content
+            // Update with new content and release lock
             currentQuestion.response = editText;
             currentQuestion.status = 'edited';
             currentQuestion.lastEditedAt = new Date().toISOString();
+            currentQuestion.lockedBy = null;
+            currentQuestion.lockedAt = null;
 
-            if (projectId && user?.uid) {
-                await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
+            // Use effectiveTeamId for team members
+            const ownerId = effectiveTeamId || user?.uid;
+
+            if (projectId && ownerId) {
+                await updateProjectQuestion(ownerId, projectId, question.sectionIndex, question.questionIndex, {
                     response: editText,
                     status: 'edited',
                     versions: currentQuestion.versions,
-                    lastEditedAt: currentQuestion.lastEditedAt
+                    lastEditedAt: currentQuestion.lastEditedAt,
+                    lockedBy: null,
+                    lockedAt: null
                 });
             }
 
@@ -419,8 +555,46 @@ export default function EditorPage() {
         }
     };
 
-    // Start editing
-    const startEditing = (globalIndex) => {
+    // Start editing with lock check
+    const startEditing = async (globalIndex) => {
+        const question = allQuestions[globalIndex];
+
+        // TEAM COLLABORATION: Check if we can edit this question
+        if (!canEdit && teamRole === 'viewer') {
+            alert('Viewers cannot edit questions.');
+            return;
+        }
+
+        // Check if assigned to someone else (for editors)
+        if (teamRole === 'editor' && question.assignedTo && question.assignedTo !== user?.email) {
+            alert(`This question is assigned to ${question.assignedTo}. Contact an admin to reassign it.`);
+            return;
+        }
+
+        // Check if locked by another user
+        if (question.lockedBy && question.lockedBy !== user?.email) {
+            const lockTime = question.lockedAt?.toDate?.() || new Date(question.lockedAt || 0);
+            const elapsed = Date.now() - lockTime.getTime();
+            const LOCK_DURATION = 5 * 60 * 1000; // 5 minutes
+
+            if (elapsed < LOCK_DURATION) {
+                const remaining = Math.ceil((LOCK_DURATION - elapsed) / 1000 / 60);
+                alert(`⚠️ This question is being edited by ${question.lockedBy}\n\nLock expires in ~${remaining} minute(s).`);
+                return;
+            }
+        }
+
+        // Acquire lock
+        try {
+            if (projectId && effectiveTeamId) {
+                const { acquireQuestionLock } = await import('../services/questionStatusService');
+                await acquireQuestionLock(effectiveTeamId, projectId, question.sectionIndex, question.questionIndex, user.email);
+            }
+        } catch (error) {
+            console.error('Lock acquisition failed:', error);
+            // Continue anyway - lock is advisory
+        }
+
         setEditingIndex(globalIndex);
         setEditText(allQuestions[globalIndex].response || '');
     };
@@ -691,6 +865,36 @@ export default function EditorPage() {
                                 )}
                             </button>
 
+                            {/* TEAM COLLABORATION: Distribute Evenly Button - Opens Modal */}
+                            {canApprove && teamMembers.length > 0 && (
+                                <button
+                                    onClick={() => {
+                                        const unassigned = allQuestions.filter(q => !q.assignedTo);
+                                        if (unassigned.length === 0) {
+                                            alert('All questions are already assigned!');
+                                            return;
+                                        }
+
+                                        // Pre-select editors with lowest workload (Option A)
+                                        const editors = teamMembers.filter(m => m.role !== 'viewer');
+                                        const workloads = editors.map(e => ({
+                                            email: e.email,
+                                            current: allQuestions.filter(q => q.assignedTo === e.email).length
+                                        }));
+
+                                        // Sort by workload and pre-select top N (where N = unassigned questions count)
+                                        const sorted = workloads.sort((a, b) => a.current - b.current);
+                                        const preSelected = sorted.slice(0, Math.min(unassigned.length, sorted.length)).map(w => w.email);
+
+                                        setSelectedEditors(preSelected);
+                                        setShowDistributionModal(true);
+                                    }}
+                                    className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg font-semibold hover:opacity-90 transition-all flex items-center gap-2"
+                                >
+                                    👥 Distribute Evenly
+                                </button>
+                            )}
+
                             {/* Export PDF */}
                             <button
                                 onClick={async () => {
@@ -812,6 +1016,84 @@ export default function EditorPage() {
                                             )}
                                             <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{question.sectionName}</span>
                                         </div>
+
+                                        {/* TEAM COLLABORATION: Assignee Badge */}
+                                        {question.assignedTo ? (
+                                            <div className="relative ml-2">
+                                                <button
+                                                    onClick={() => canApprove && setShowAssignDropdown(showAssignDropdown === globalIndex ? null : globalIndex)}
+                                                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 ${canApprove ? 'hover:bg-indigo-200 cursor-pointer' : 'cursor-default'}`}
+                                                    disabled={!canApprove}
+                                                >
+                                                    <span>👤</span>
+                                                    <span className="max-w-[100px] truncate">{question.assignedTo.split('@')[0]}</span>
+                                                    {canApprove && <span className="ml-0.5">▼</span>}
+                                                </button>
+
+                                                {/* Reassign Dropdown */}
+                                                {showAssignDropdown === globalIndex && canApprove && teamMembers.length > 0 && (
+                                                    <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[180px] max-h-48 overflow-y-auto">
+                                                        <div className="px-3 py-1.5 text-xs font-medium text-gray-500 border-b">Assign to:</div>
+                                                        {teamMembers.map(member => (
+                                                            <button
+                                                                key={member.email || member.id}
+                                                                onClick={() => handleAssignQuestion(globalIndex, member.email)}
+                                                                disabled={assigningQuestion === globalIndex}
+                                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 ${question.assignedTo === member.email ? 'bg-indigo-50' : ''}`}
+                                                            >
+                                                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs text-white font-bold">
+                                                                    {(member.displayName || member.email || '?')[0].toUpperCase()}
+                                                                </span>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="truncate text-gray-900 dark:text-white">{member.displayName || member.email?.split('@')[0]}</p>
+                                                                    <p className="text-xs text-gray-500">{member.role || 'member'}</p>
+                                                                </div>
+                                                                {question.assignedTo === member.email && <span className="text-green-600">✓</span>}
+                                                            </button>
+                                                        ))}
+                                                        <button
+                                                            onClick={() => handleAssignQuestion(globalIndex, null)}
+                                                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 border-t mt-1"
+                                                        >
+                                                            ❌ Unassign
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : canApprove && teamMembers.length > 0 ? (
+                                            <div className="relative ml-2">
+                                                <button
+                                                    onClick={() => setShowAssignDropdown(showAssignDropdown === globalIndex ? null : globalIndex)}
+                                                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                                >
+                                                    <span>➕</span>
+                                                    <span>Assign</span>
+                                                </button>
+
+                                                {/* Assign Dropdown */}
+                                                {showAssignDropdown === globalIndex && (
+                                                    <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[180px] max-h-48 overflow-y-auto">
+                                                        <div className="px-3 py-1.5 text-xs font-medium text-gray-500 border-b">Assign to:</div>
+                                                        {teamMembers.map(member => (
+                                                            <button
+                                                                key={member.email || member.id}
+                                                                onClick={() => handleAssignQuestion(globalIndex, member.email)}
+                                                                disabled={assigningQuestion === globalIndex}
+                                                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
+                                                            >
+                                                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs text-white font-bold">
+                                                                    {(member.displayName || member.email || '?')[0].toUpperCase()}
+                                                                </span>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="truncate text-gray-900 dark:text-white">{member.displayName || member.email?.split('@')[0]}</p>
+                                                                    <p className="text-xs text-gray-500">{member.role || 'member'}</p>
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : null}
                                     </div>
 
                                     {/* Action Buttons */}
@@ -1096,6 +1378,190 @@ export default function EditorPage() {
                     questionText={showComments.questionText}
                     onClose={() => setShowComments(null)}
                 />
+            )}
+
+            {/* Smart Distribution Modal (Option A+B) */}
+            {showDistributionModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
+                        {/* Modal Header */}
+                        <div className="p-5 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                    👥 Distribute Questions
+                                </h2>
+                                <button
+                                    onClick={() => setShowDistributionModal(false)}
+                                    className="text-gray-400 hover:text-gray-600 text-xl"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            {/* Show distribution breakdown */}
+                            {selectedEditors.length > 0 && (() => {
+                                const unassignedCount = allQuestions.filter(q => !q.assignedTo).length;
+                                const base = Math.floor(unassignedCount / selectedEditors.length);
+                                const remainder = unassignedCount % selectedEditors.length;
+                                return (
+                                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-sm">
+                                        <p className="text-blue-800 dark:text-blue-200">
+                                            📊 <strong>{unassignedCount}</strong> questions ÷ <strong>{selectedEditors.length}</strong> editors =
+                                            <strong> {base}</strong> each
+                                            {remainder > 0 && (
+                                                <span className="text-orange-600 dark:text-orange-400">
+                                                    {' '}+ <strong>{remainder}</strong> extra (first {remainder} selected editors get +1)
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Editor Selection */}
+                        <div className="p-5 max-h-[50vh] overflow-y-auto">
+                            <div className="space-y-2">
+                                {teamMembers.filter(m => m.role !== 'viewer').map((member, memberIdx) => {
+                                    const workload = allQuestions.filter(q => q.assignedTo === member.email).length;
+                                    const isSelected = selectedEditors.includes(member.email);
+                                    const editorPosition = selectedEditors.indexOf(member.email);
+                                    const unassignedCount = allQuestions.filter(q => !q.assignedTo).length;
+                                    const base = selectedEditors.length > 0 ? Math.floor(unassignedCount / selectedEditors.length) : 0;
+                                    const remainder = selectedEditors.length > 0 ? unassignedCount % selectedEditors.length : 0;
+                                    // First 'remainder' editors get +1
+                                    const willGet = isSelected ? (base + (editorPosition < remainder ? 1 : 0)) : 0;
+                                    const getsExtra = isSelected && editorPosition < remainder;
+
+                                    return (
+                                        <label
+                                            key={member.email}
+                                            className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${isSelected
+                                                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30'
+                                                : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                                }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedEditors([...selectedEditors, member.email]);
+                                                    } else {
+                                                        setSelectedEditors(selectedEditors.filter(em => em !== member.email));
+                                                    }
+                                                }}
+                                                className="w-5 h-5 rounded text-indigo-600"
+                                            />
+                                            <span className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                                {(member.displayName || member.email || '?')[0].toUpperCase()}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-medium text-gray-900 dark:text-white truncate">
+                                                    {member.displayName || member.email?.split('@')[0]}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {member.role} • Current workload: {workload} questions
+                                                </p>
+                                            </div>
+                                            {isSelected && (
+                                                <span className={`text-xs px-2 py-1 rounded-full ${getsExtra
+                                                    ? 'bg-orange-100 text-orange-700'
+                                                    : 'bg-green-100 text-green-700'
+                                                    }`}>
+                                                    +{willGet}{getsExtra && ' ⭐'}
+                                                </span>
+                                            )}
+                                        </label>
+                                    );
+                                })}
+
+                                {teamMembers.filter(m => m.role !== 'viewer').length === 0 && (
+                                    <p className="text-center text-gray-500 py-8">
+                                        No editors available. Add team members with editor role first.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-5 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                            <div className="flex items-center justify-between">
+                                <button
+                                    onClick={() => {
+                                        const editors = teamMembers.filter(m => m.role !== 'viewer');
+                                        setSelectedEditors(editors.map(e => e.email));
+                                    }}
+                                    className="text-sm text-indigo-600 hover:underline"
+                                >
+                                    Select All
+                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowDistributionModal(false)}
+                                        className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            if (selectedEditors.length === 0) {
+                                                alert('Please select at least one editor.');
+                                                return;
+                                            }
+
+                                            setDistributing(true);
+                                            try {
+                                                const { assignQuestionToMember } = await import('../services/questionStatusService');
+                                                const unassigned = allQuestions.filter(q => !q.assignedTo);
+                                                const updatedRfp = JSON.parse(JSON.stringify(rfp));
+
+                                                let assigned = 0;
+                                                for (let i = 0; i < unassigned.length; i++) {
+                                                    const q = unassigned[i];
+                                                    const editor = selectedEditors[i % selectedEditors.length];
+
+                                                    await assignQuestionToMember(
+                                                        effectiveTeamId || user.uid,
+                                                        projectId,
+                                                        q.sectionIndex,
+                                                        q.questionIndex,
+                                                        editor,
+                                                        user.email
+                                                    );
+
+                                                    updatedRfp.sections[q.sectionIndex].questions[q.questionIndex].assignedTo = editor;
+                                                    assigned++;
+                                                }
+
+                                                setRfp(updatedRfp);
+                                                setShowDistributionModal(false);
+                                                alert(`✅ Distributed ${assigned} questions to ${selectedEditors.length} editors!`);
+                                            } catch (error) {
+                                                console.error('Distribution error:', error);
+                                                alert('Failed to distribute: ' + error.message);
+                                            } finally {
+                                                setDistributing(false);
+                                            }
+                                        }}
+                                        disabled={distributing || selectedEditors.length === 0}
+                                        className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {distributing ? (
+                                            <>
+                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                                Distributing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                ✅ Distribute {allQuestions.filter(q => !q.assignedTo).length} Questions
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

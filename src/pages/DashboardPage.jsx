@@ -8,7 +8,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import NotificationCenter from '../components/NotificationCenter';
 
 export default function DashboardPage() {
-    const { user, userData, loading } = useAuth();
+    const { user, userData, loading, effectiveTeamId, isTeamMember, teamRole, canEdit } = useAuth();
     const navigate = useNavigate();
     const [rfps, setRfps] = useState([]);
     const [loadingRfps, setLoadingRfps] = useState(true);
@@ -26,8 +26,8 @@ export default function DashboardPage() {
             try {
                 setLoadingRfps(true);
 
-                // First, migrate any orphan RFPs to Untitled Project
-                if (user?.uid) {
+                // First, migrate any orphan RFPs to Untitled Project (only for team owners)
+                if (user?.uid && !isTeamMember) {
                     try {
                         const { checkAndMigrateOnLogin } = await import('../services/migrationService');
                         const migrationResult = await checkAndMigrateOnLogin(user.uid);
@@ -41,10 +41,14 @@ export default function DashboardPage() {
 
                 let allRfps = [];
 
+                // TEAM COLLABORATION: Use effectiveTeamId to fetch the right projects
+                // If user is a team member, fetch from team owner's projects
+                const teamIdToFetch = effectiveTeamId || user?.uid;
+
                 // Fetch team RFPs if user has a team (with isolated error handling)
-                if (userData?.teamId) {
+                if (teamIdToFetch && teamIdToFetch !== user?.uid) {
                     try {
-                        const result = await getRFPs(userData.teamId);
+                        const result = await getRFPs(teamIdToFetch);
                         if (result.success) {
                             allRfps = [...result.rfps];
                         }
@@ -54,11 +58,11 @@ export default function DashboardPage() {
                     }
                 }
 
-                // Fetch user's projects using the same service function that works on ProjectsPage
-                if (user?.uid) {
+                // Fetch projects from the effective team (owner's projects if team member)
+                if (teamIdToFetch) {
                     try {
-                        const projects = await getProjects(user.uid);
-                        console.log('Dashboard: Got projects:', projects.length);
+                        const projects = await getProjects(teamIdToFetch);
+                        console.log('Dashboard: Got projects:', projects.length, isTeamMember ? '(from team owner)' : '(own projects)');
                         projects.forEach(project => {
                             allRfps.push({ ...project, isProject: true });
                         });
@@ -75,10 +79,10 @@ export default function DashboardPage() {
             }
         };
 
-        if (!loading && user) {
+        if (!loading && user && (effectiveTeamId || userData)) {
             fetchRFPs();
         }
-    }, [userData, user, loading]);
+    }, [userData, user, loading, effectiveTeamId, isTeamMember]);
 
     const handleLogout = async () => {
         await logout();
@@ -393,12 +397,21 @@ export default function DashboardPage() {
                                             </p>
                                         </Link>
                                         <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                                            <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${rfp.status === 'ready' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                                                rfp.status === 'processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-                                                    'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                                            <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${rfp.status === 'ready' || rfp.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                                                    rfp.status === 'processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                                                        rfp.status === 'in-progress' || rfp.status === 'draft' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' :
+                                                            rfp.status === 'review' || rfp.status === 'in_review' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
+                                                                rfp.status === 'submitted' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' :
+                                                                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                                                 }`}>
                                                 {rfp.status === 'ready' ? 'Ready' :
-                                                    rfp.status === 'processing' ? 'Processing' : 'Error'}
+                                                    rfp.status === 'approved' ? 'Approved' :
+                                                        rfp.status === 'processing' ? 'Processing' :
+                                                            rfp.status === 'in-progress' ? 'In Progress' :
+                                                                rfp.status === 'draft' ? 'Draft' :
+                                                                    rfp.status === 'review' || rfp.status === 'in_review' ? 'In Review' :
+                                                                        rfp.status === 'submitted' ? 'Submitted' :
+                                                                            rfp.status?.charAt(0).toUpperCase() + rfp.status?.slice(1) || 'Unknown'}
                                             </span>
                                             <button
                                                 onClick={(e) => handleDeleteRFP(e, rfp)}

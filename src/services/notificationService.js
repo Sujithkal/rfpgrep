@@ -22,6 +22,7 @@ import {
  * Notification types
  */
 export const NOTIFICATION_TYPES = {
+    // Original types
     MENTION: 'mention',           // Someone mentioned you
     APPROVAL: 'approval',         // Approval needed
     DEADLINE: 'deadline',         // Deadline approaching
@@ -29,7 +30,16 @@ export const NOTIFICATION_TYPES = {
     COMMENT: 'comment',           // New comment
     STATUS_CHANGE: 'status',      // Project status changed
     AI_COMPLETE: 'ai_complete',   // AI generation complete
-    SYSTEM: 'system'              // System announcement
+    SYSTEM: 'system',             // System announcement
+
+    // Team collaboration types
+    ASSIGNMENT: 'assignment',           // You were assigned a question
+    UNASSIGNMENT: 'unassignment',       // Question was unassigned from you
+    QUESTION_APPROVED: 'question_approved',  // Your submission was approved
+    CHANGES_REQUESTED: 'changes_requested',  // Your submission needs changes
+    SUBMITTED_FOR_REVIEW: 'submitted_for_review', // Editor submitted for review
+    MEMBER_JOINED: 'member_joined',      // New team member joined
+    MEMBER_REMOVED: 'member_removed'     // Team member removed
 };
 
 /**
@@ -157,6 +167,94 @@ export const getNotificationIcon = (type) => {
         case NOTIFICATION_TYPES.STATUS_CHANGE: return '🔄';
         case NOTIFICATION_TYPES.AI_COMPLETE: return '🤖';
         case NOTIFICATION_TYPES.SYSTEM: return '📢';
+        // Team collaboration types
+        case NOTIFICATION_TYPES.ASSIGNMENT: return '📝';
+        case NOTIFICATION_TYPES.UNASSIGNMENT: return '↩️';
+        case NOTIFICATION_TYPES.QUESTION_APPROVED: return '✅';
+        case NOTIFICATION_TYPES.CHANGES_REQUESTED: return '🔄';
+        case NOTIFICATION_TYPES.SUBMITTED_FOR_REVIEW: return '👀';
+        case NOTIFICATION_TYPES.MEMBER_JOINED: return '🎉';
+        case NOTIFICATION_TYPES.MEMBER_REMOVED: return '👋';
         default: return '🔔';
     }
+};
+
+/**
+ * TEAM COLLABORATION NOTIFICATION HELPERS
+ */
+
+/**
+ * Notify editor they were assigned a question
+ */
+export const notifyQuestionAssigned = async (assigneeUserId, data) => {
+    return createNotification(assigneeUserId, {
+        type: NOTIFICATION_TYPES.ASSIGNMENT,
+        title: 'Question Assigned to You',
+        message: `You've been assigned "${truncateText(data.questionText, 50)}" in project "${data.projectName}"`,
+        data: {
+            projectId: data.projectId,
+            sectionIndex: data.sectionIndex,
+            questionIndex: data.questionIndex,
+            assignedBy: data.assignedBy
+        }
+    });
+};
+
+/**
+ * Notify editor their question was approved
+ */
+export const notifyQuestionApproved = async (editorUserId, data) => {
+    return createNotification(editorUserId, {
+        type: NOTIFICATION_TYPES.QUESTION_APPROVED,
+        title: 'Response Approved! 🎉',
+        message: `Your response to "${truncateText(data.questionText, 50)}" was approved by ${data.approvedBy}`,
+        data: {
+            projectId: data.projectId,
+            sectionIndex: data.sectionIndex,
+            questionIndex: data.questionIndex
+        }
+    });
+};
+
+/**
+ * Notify editor that changes were requested
+ */
+export const notifyChangesRequested = async (editorUserId, data) => {
+    return createNotification(editorUserId, {
+        type: NOTIFICATION_TYPES.CHANGES_REQUESTED,
+        title: 'Changes Requested',
+        message: `Please revise "${truncateText(data.questionText, 50)}" - ${data.reason || 'See admin feedback'}`,
+        data: {
+            projectId: data.projectId,
+            sectionIndex: data.sectionIndex,
+            questionIndex: data.questionIndex,
+            reason: data.reason
+        }
+    });
+};
+
+/**
+ * Notify admin that editor submitted for review
+ */
+export const notifySubmittedForReview = async (adminUserId, data) => {
+    return createNotification(adminUserId, {
+        type: NOTIFICATION_TYPES.SUBMITTED_FOR_REVIEW,
+        title: 'Pending Review',
+        message: `${data.submittedBy} submitted "${truncateText(data.questionText, 50)}" for review`,
+        data: {
+            projectId: data.projectId,
+            sectionIndex: data.sectionIndex,
+            questionIndex: data.questionIndex,
+            submittedBy: data.submittedBy
+        }
+    });
+};
+
+/**
+ * Helper to truncate text
+ */
+const truncateText = (text, maxLength) => {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
 };

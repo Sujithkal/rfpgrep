@@ -1,5 +1,5 @@
 import { db as firestore, storage } from './firebase';
-import { collection, doc, setDoc, getDoc, getDocs, query, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -295,6 +295,20 @@ export async function batchUpdateQuestions(userId, projectId, updates) {
         return true;
     } catch (error) {
         console.error('Error batch updating questions:', error);
+        throw error;
+    }
+}
+
+/**
+ * Delete a project
+ */
+export async function deleteProject(userId, projectId) {
+    try {
+        const projectRef = doc(firestore, `users/${userId}/projects/${projectId}`);
+        await deleteDoc(projectRef);
+        return true;
+    } catch (error) {
+        console.error('Error deleting project:', error);
         throw error;
     }
 }

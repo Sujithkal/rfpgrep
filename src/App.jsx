@@ -41,6 +41,7 @@ import TrialSignupPage from './pages/TrialSignupPage';
 import AUPPage from './pages/AUPPage';
 import DPAPage from './pages/DPAPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import MyTasksPage from './pages/MyTasksPage';
 import './index.css';
 
 function App() {
@@ -95,6 +96,7 @@ function App() {
               <Route path="/status" element={<StatusPage />} />
               <Route path="compliance" element={<CompliancePage />} />
               <Route path="/team" element={<TeamPage />} />
+              <Route path="/my-tasks" element={<MyTasksPage />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/answers" element={<AnswerLibraryPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />

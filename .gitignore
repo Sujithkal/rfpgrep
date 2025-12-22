@@ -29,6 +29,9 @@ firestore-debug.log
 ui-debug.log
 .firebaserc
 
+# Firebase Admin SDK key - NEVER commit these!
+*-firebase-adminsdk-*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

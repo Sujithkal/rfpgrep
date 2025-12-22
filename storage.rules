@@ -25,6 +25,22 @@ service firebase.storage {
                       request.resource.contentType.matches('application/pdf|application/vnd.openxmlformats-officedocument.*|application/vnd.ms-excel|application/msword');
     }
 
+    // User Knowledge Library files
+    match /users/{userId}/knowledge/{fileName} {
+      // Allow read if authenticated
+      allow read: if request.auth != null;
+      
+      // Allow write if authenticated and owner, within size/type limits
+      // Supports PDF, Word docs, and plain text
+      allow write: if request.auth != null &&
+                      request.auth.uid == userId &&
+                      request.resource.size < 10 * 1024 * 1024 && // 10MB limit
+                      request.resource.contentType.matches('application/pdf|application/vnd.openxmlformats-officedocument.*|application/msword|text/plain');
+      
+      // Allow delete only by owner
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
     // User avatars
     match /users/{userId}/avatar {
       allow read: if request.auth != null;

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../services/firebase';
 import { getUserData } from '../services/authService';
@@ -55,13 +55,46 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // TEAM COLLABORATION: Compute effective team context
+    const teamContext = useMemo(() => {
+        if (!userData || !user) {
+            return {
+                effectiveTeamId: null,
+                isTeamOwner: false,
+                isTeamMember: false,
+                teamRole: null,
+                canEdit: false,
+                canApprove: false,
+                canManageTeam: false
+            };
+        }
+
+        // Check if user is a member of another team
+        const teamId = userData.teamId || user.uid;
+        const isTeamOwner = !userData.teamId || userData.teamId === user.uid;
+        const isTeamMember = userData.teamId && userData.teamId !== user.uid;
+        const role = isTeamOwner ? 'owner' : (userData.role || 'viewer');
+
+        return {
+            effectiveTeamId: teamId,           // The team to load data for
+            isTeamOwner,                        // True if this user owns the team
+            isTeamMember,                       // True if member of another's team
+            teamRole: role,                     // owner | admin | editor | viewer
+            canEdit: ['owner', 'admin', 'editor'].includes(role),
+            canApprove: ['owner', 'admin'].includes(role),
+            canManageTeam: ['owner', 'admin'].includes(role)
+        };
+    }, [userData, user]);
+
     const value = {
         user,
         userData,
         loading,
         error,
         setError,
-        refreshUserData
+        refreshUserData,
+        // Team collaboration context
+        ...teamContext
     };
 
     return (
@@ -72,3 +105,4 @@ export const AuthProvider = ({ children }) => {
 };
 
 export default AuthContext;
+

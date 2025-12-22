@@ -69,26 +69,30 @@ export const checkLimit = async (userId, actionType, userData = null) => {
                 const projectsUsed = usage.projectsThisMonth || 0;
                 const projectsLimit = planLimits.projectsPerMonth;
                 if (projectsLimit === -1) { // Unlimited
-                    return { allowed: true, limit: -1, used: projectsUsed };
+                    return { allowed: true, limit: -1, used: projectsUsed, remaining: Infinity };
                 }
+                const projectsRemaining = Math.max(0, projectsLimit - projectsUsed);
                 return {
                     allowed: projectsUsed < projectsLimit,
                     reason: `You've used ${projectsUsed} of ${projectsLimit} projects this month`,
                     limit: projectsLimit,
-                    used: projectsUsed
+                    used: projectsUsed,
+                    remaining: projectsRemaining
                 };
 
             case 'generateResponse':
                 const responsesUsed = usage.aiResponsesThisMonth || 0;
                 const responsesLimit = planLimits.aiResponsesPerMonth;
                 if (responsesLimit === -1) { // Unlimited
-                    return { allowed: true, limit: -1, used: responsesUsed };
+                    return { allowed: true, limit: -1, used: responsesUsed, remaining: Infinity };
                 }
+                const responsesRemaining = Math.max(0, responsesLimit - responsesUsed);
                 return {
                     allowed: responsesUsed < responsesLimit,
                     reason: `You've used ${responsesUsed} of ${responsesLimit} AI responses this month`,
                     limit: responsesLimit,
-                    used: responsesUsed
+                    used: responsesUsed,
+                    remaining: responsesRemaining
                 };
 
             case 'uploadKnowledge':
@@ -109,7 +113,8 @@ export const checkLimit = async (userId, actionType, userData = null) => {
         }
     } catch (error) {
         console.error('Error checking limit:', error);
-        return { allowed: true }; // Allow on error to not block users
+        // Fail-safe: block action if we can't verify limits to prevent abuse
+        return { allowed: false, reason: 'Unable to verify usage limits. Please try again.', limit: 0, used: 0, remaining: 0 };
     }
 };
 

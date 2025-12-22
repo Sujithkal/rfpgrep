@@ -40,6 +40,23 @@ export const EMAIL_TEMPLATES = {
     WEEKLY_SUMMARY: {
         subject: 'Your Weekly RFP Summary',
         template: 'weekly_summary'
+    },
+    // Team collaboration templates
+    QUESTION_ASSIGNED: {
+        subject: '📝 New Question Assigned to You',
+        template: 'question_assigned'
+    },
+    QUESTION_APPROVED: {
+        subject: '✅ Your Response Was Approved!',
+        template: 'question_approved'
+    },
+    CHANGES_REQUESTED: {
+        subject: '🔄 Changes Requested on Your Response',
+        template: 'changes_requested'
+    },
+    SUBMITTED_FOR_REVIEW: {
+        subject: '👀 Response Submitted for Review',
+        template: 'submitted_for_review'
     }
 };
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getProjects, createProject, updateProjectOutcome, updateProject } from '../services/projectService';
+import { getProjects, createProject, updateProjectOutcome, updateProject, deleteProject } from '../services/projectService';
+import { checkLimit, incrementUsage } from '../services/usageService';
 import NewProjectModal from '../components/NewProjectModal';
 
 export default function ProjectsPage() {
@@ -44,9 +45,20 @@ export default function ProjectsPage() {
             return;
         }
 
+        // Check project creation limit
+        const limitCheck = await checkLimit(currentUser.uid, 'createProject');
+        if (!limitCheck.allowed) {
+            alert(`🚫 Project Limit Reached!\n\n${limitCheck.reason}\n\nPlease upgrade your plan to create more projects.\n\n👉 Go to Settings → Billing to upgrade.`);
+            return;
+        }
+
         try {
             console.log('Creating project for user:', currentUser.uid);
             const newProject = await createProject(currentUser.uid, projectData);
+
+            // Increment project usage counter
+            await incrementUsage(currentUser.uid, 'project');
+
             setProjects([newProject, ...projects]);
             setShowNewProjectModal(false);
             alert(`Project "${newProject.name}" created! Check back in 30 seconds for parsed questions.`);
@@ -148,6 +160,24 @@ export default function ProjectsPage() {
             case 'lost': return 'bg-red-100 text-red-700 border-red-300';
             case 'pending': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
             default: return 'bg-gray-100 text-gray-600 border-gray-200';
+        }
+    };
+
+    // Handle project deletion
+    const handleDeleteProject = async (e, projectId, projectName) => {
+        e.stopPropagation();
+        const confirmed = window.confirm(
+            `⚠️ Delete project "${projectName}"?\n\nThis will permanently delete all questions and responses. This action cannot be undone.`
+        );
+        if (!confirmed) return;
+
+        try {
+            await deleteProject(currentUser.uid, projectId);
+            setProjects(prev => prev.filter(p => p.id !== projectId));
+            alert('Project deleted successfully.');
+        } catch (error) {
+            console.error('Error deleting project:', error);
+            alert('Failed to delete project: ' + error.message);
         }
     };
 
@@ -375,7 +405,10 @@ export default function ProjectsPage() {
                                     </div>
 
                                     {/* Outcome (Won/Lost) Section */}
-                                    <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between">
+                                    <div
+                                        className="px-6 py-3 border-t border-gray-100 flex items-center justify-between"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
                                         <span className="text-xs text-gray-500 font-medium">Outcome:</span>
                                         <div className="flex gap-1">
                                             {[
@@ -385,7 +418,11 @@ export default function ProjectsPage() {
                                             ].map(({ value, label, color }) => (
                                                 <button
                                                     key={value}
-                                                    onClick={(e) => handleOutcomeChange(e, project.id, project.outcome === value ? null : value)}
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        handleUpdateOutcome(project.id, project.outcome === value ? null : value);
+                                                    }}
                                                     className={`px-2 py-1 text-xs rounded-md border font-medium transition-all ${project.outcome === value
                                                         ? getOutcomeColor(value)
                                                         : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
@@ -426,6 +463,12 @@ export default function ProjectsPage() {
                                         >
                                             ✏️ Edit RFP
                                         </Link>
+                                        <button
+                                            onClick={(e) => handleDeleteProject(e, project.id, project.name)}
+                                            className="py-1.5 px-2 text-xs bg-red-50 text-red-600 rounded-md hover:bg-red-100 transition-colors font-medium"
+                                        >
+                                            🗑️ Delete
+                                        </button>
                                     </div>
                                 </div>
                             );
