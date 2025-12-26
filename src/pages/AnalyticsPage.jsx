@@ -3,16 +3,22 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
+import { calculateWinProbability } from '../services/winPredictionService';
+import { extractExamplesFromProject, getTrainingStats } from '../services/trainingDataService';
 
 export default function AnalyticsPage() {
     const { user, userData } = useAuth();
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [timeRange, setTimeRange] = useState('all');
+    const [trainingStats, setTrainingStats] = useState({ totalExamples: 0, categories: {} });
+    const [extracting, setExtracting] = useState(null);
+    const [predictions, setPredictions] = useState({});
 
     useEffect(() => {
         if (user?.uid) {
             loadProjects();
+            loadTrainingStats();
         }
     }, [user]);
 
@@ -32,6 +38,41 @@ export default function AnalyticsPage() {
             console.error('Error loading projects:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadTrainingStats = async () => {
+        const stats = await getTrainingStats(user.uid);
+        setTrainingStats(stats);
+    };
+
+    // Extract training examples from a won project
+    const handleLearnFromWin = async (projectId) => {
+        setExtracting(projectId);
+        try {
+            const result = await extractExamplesFromProject(user.uid, projectId);
+            if (result.success) {
+                alert(`✅ Extracted ${result.extractedCount} training examples from this winning RFP!`);
+                loadTrainingStats();
+            } else {
+                alert(`❌ ${result.error}`);
+            }
+        } catch (error) {
+            console.error('Error extracting training:', error);
+        } finally {
+            setExtracting(null);
+        }
+    };
+
+    // Calculate win prediction for a project
+    const handleCalculatePrediction = async (projectId) => {
+        try {
+            const result = await calculateWinProbability(user.uid, projectId);
+            if (result.success) {
+                setPredictions(prev => ({ ...prev, [projectId]: result }));
+            }
+        } catch (error) {
+            console.error('Error calculating prediction:', error);
         }
     };
 
@@ -187,6 +228,43 @@ export default function AnalyticsPage() {
                     </div>
                 </div>
 
+                {/* AI Training Stats */}
+                <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200 shadow-sm mb-8">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="text-lg font-semibold text-purple-900 flex items-center gap-2">
+                                🧠 AI Training Progress
+                            </h3>
+                            <p className="text-sm text-purple-700 mt-1">
+                                Your AI learns from winning RFPs to generate better responses
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-3xl font-bold text-purple-700">{trainingStats.totalExamples}</p>
+                            <p className="text-sm text-purple-600">Training Examples</p>
+                        </div>
+                    </div>
+                    {trainingStats.totalExamples > 0 && (
+                        <div className="mt-4 pt-4 border-t border-purple-200">
+                            <p className="text-sm text-purple-700 mb-2">Categories learned:</p>
+                            <div className="flex flex-wrap gap-2">
+                                {trainingStats.topCategories?.map(([category, count]) => (
+                                    <span key={category} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                                        {category}: {count}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {trainingStats.totalExamples === 0 && (
+                        <div className="mt-4 pt-4 border-t border-purple-200">
+                            <p className="text-sm text-purple-600">
+                                💡 Mark your first project as "Won" and click "Learn from Win" to start training your AI!
+                            </p>
+                        </div>
+                    )}
+                </div>
+
                 {/* Performance Metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     {/* Win Rate */}
@@ -317,43 +395,101 @@ export default function AnalyticsPage() {
                     ) : (
                         <div className="divide-y divide-gray-100">
                             {analytics.filteredProjects.map(project => (
-                                <div key={project.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-                                    <div className="flex-1">
-                                        <h3 className="font-medium text-gray-900">
-                                            {project.name || 'Untitled Project'}
-                                        </h3>
-                                        <p className="text-sm text-gray-500">
-                                            {project.client || 'No client'} • {project.stats?.totalQuestions || 0} questions • {project.stats?.progress || 0}% complete
-                                        </p>
+                                <div key={project.id} className="px-6 py-4 hover:bg-gray-50">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                            <h3 className="font-medium text-gray-900">
+                                                {project.name || 'Untitled Project'}
+                                            </h3>
+                                            <p className="text-sm text-gray-500">
+                                                {project.client || 'No client'} • {project.stats?.totalQuestions || 0} questions • {project.stats?.progress || 0}% complete
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => updateOutcome(project.id, 'won')}
+                                                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${project.outcome === 'won'
+                                                    ? 'bg-green-600 text-white'
+                                                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                                    }`}
+                                            >
+                                                ✅ Won
+                                            </button>
+                                            <button
+                                                onClick={() => updateOutcome(project.id, 'lost')}
+                                                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${project.outcome === 'lost'
+                                                    ? 'bg-red-600 text-white'
+                                                    : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                    }`}
+                                            >
+                                                ❌ Lost
+                                            </button>
+                                            <button
+                                                onClick={() => updateOutcome(project.id, 'pending')}
+                                                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${!project.outcome || project.outcome === 'pending'
+                                                    ? 'bg-yellow-500 text-white'
+                                                    : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                                                    }`}
+                                            >
+                                                ⏳ Pending
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => updateOutcome(project.id, 'won')}
-                                            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${project.outcome === 'won'
-                                                ? 'bg-green-600 text-white'
-                                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                                }`}
-                                        >
-                                            ✅ Won
-                                        </button>
-                                        <button
-                                            onClick={() => updateOutcome(project.id, 'lost')}
-                                            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${project.outcome === 'lost'
-                                                ? 'bg-red-600 text-white'
-                                                : 'bg-red-100 text-red-700 hover:bg-red-200'
-                                                }`}
-                                        >
-                                            ❌ Lost
-                                        </button>
-                                        <button
-                                            onClick={() => updateOutcome(project.id, 'pending')}
-                                            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${!project.outcome || project.outcome === 'pending'
-                                                ? 'bg-yellow-500 text-white'
-                                                : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                                                }`}
-                                        >
-                                            ⏳ Pending
-                                        </button>
+
+                                    {/* Action buttons row */}
+                                    <div className="mt-3 flex items-center gap-3">
+                                        {/* Learn From Win button - only for won projects */}
+                                        {project.outcome === 'won' && (
+                                            <button
+                                                onClick={() => handleLearnFromWin(project.id)}
+                                                disabled={extracting === project.id}
+                                                className="px-3 py-1.5 text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                {extracting === project.id ? (
+                                                    <>⏳ Learning...</>
+                                                ) : (
+                                                    <>🧠 Learn from Win</>
+                                                )}
+                                            </button>
+                                        )}
+
+                                        {/* Predict Win Probability button */}
+                                        {(!project.outcome || project.outcome === 'pending') && (
+                                            <button
+                                                onClick={() => handleCalculatePrediction(project.id)}
+                                                className="px-3 py-1.5 text-xs font-medium bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 flex items-center gap-1"
+                                            >
+                                                🎯 Calculate Win Probability
+                                            </button>
+                                        )}
+
+                                        {/* Show prediction result */}
+                                        {predictions[project.id] && (
+                                            <div className={`px-3 py-1.5 text-xs font-medium rounded-lg flex items-center gap-2 ${predictions[project.id].probability >= 70 ? 'bg-green-100 text-green-700' :
+                                                predictions[project.id].probability >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
+                                                }`}>
+                                                <span className="text-base">
+                                                    {predictions[project.id].probability >= 70 ? '🔥' :
+                                                        predictions[project.id].probability >= 40 ? '⚡' : '⚠️'}
+                                                </span>
+                                                <span>{predictions[project.id].probability}% Win Probability</span>
+                                            </div>
+                                        )}
+
+                                        {/* Show stored win probability */}
+                                        {project.winProbability && !predictions[project.id] && (
+                                            <div className={`px-3 py-1.5 text-xs font-medium rounded-lg flex items-center gap-2 ${project.winProbability.score >= 70 ? 'bg-green-100 text-green-700' :
+                                                project.winProbability.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-red-100 text-red-700'
+                                                }`}>
+                                                <span className="text-base">
+                                                    {project.winProbability.score >= 70 ? '🔥' :
+                                                        project.winProbability.score >= 40 ? '⚡' : '⚠️'}
+                                                </span>
+                                                <span>{project.winProbability.score}% (saved)</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}

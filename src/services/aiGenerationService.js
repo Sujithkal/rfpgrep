@@ -1,7 +1,8 @@
 // AI Generation Service - RAG-powered response generation
-// Integrates Answer Library and Knowledge Library for context-aware AI responses
+// Integrates Answer Library, Knowledge Library, and Training Data for context-aware AI responses
 
 import { getSuggestedAnswers } from './answerLibraryService';
+import { buildTrainingContext } from './trainingDataService';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -30,7 +31,15 @@ export const generateAIResponse = async (userId, questionText) => {
         // Step 2: Search Knowledge Library for relevant chunks
         const knowledgeChunks = await searchKnowledgeLocal(userId, questionText, 5);
 
-        // Step 3: Check if we have a strong Answer Library match
+        // Step 3: Get training context from winning responses
+        let trainingContext = null;
+        try {
+            trainingContext = await buildTrainingContext(userId, questionText);
+        } catch (e) {
+            console.log('Training context not available:', e.message);
+        }
+
+        // Step 4: Check if we have a strong Answer Library match
         const strongMatch = answerMatches.find(a => a.similarity >= ANSWER_LIBRARY_THRESHOLD);
 
         if (strongMatch) {
@@ -48,9 +57,9 @@ export const generateAIResponse = async (userId, questionText) => {
             };
         }
 
-        // Step 4: Generate response using context from both libraries
+        // Step 5: Generate response using context from all sources
         const contextAnswers = answerMatches.filter(a => a.similarity >= CONTEXT_THRESHOLD);
-        const response = generateContextualResponse(questionText, contextAnswers, knowledgeChunks);
+        const response = await generateContextualResponse(questionText, contextAnswers, knowledgeChunks, trainingContext);
 
         // Build sources list
         const sources = [];
@@ -147,63 +156,165 @@ export const searchKnowledgeLocal = async (userId, query, limit = 5) => {
 };
 
 /**
- * Generate response using available context
+ * Generate response using available context - calls Gemini AI to synthesize answer
  */
-const generateContextualResponse = (question, answerMatches, knowledgeChunks) => {
-    const parts = [];
+const generateContextualResponse = async (question, answerMatches, knowledgeChunks, trainingContext = null) => {
+    console.log('generateContextualResponse called:', {
+        question: question.substring(0, 50) + '...',
+        answerMatchesCount: answerMatches.length,
+        knowledgeChunksCount: knowledgeChunks.length,
+        hasTrainingContext: !!trainingContext
+    });
 
-    // If we have Answer Library context, use it
-    if (answerMatches.length > 0) {
-        const topAnswer = answerMatches[0];
-        parts.push(topAnswer.answer);
+    // If we have Answer Library context with high similarity, use it directly
+    if (answerMatches.length > 0 && answerMatches[0].similarity >= 60) {
+        console.log('Using high-similarity Answer Library match');
+        return answerMatches[0].answer;
     }
 
-    // If we have Knowledge Library context, incorporate key points
-    if (knowledgeChunks.length > 0 && parts.length === 0) {
-        // Extract relevant sentences from knowledge chunks
-        const relevantInfo = knowledgeChunks
-            .slice(0, 2)
-            .map(chunk => {
-                // Get first 2 sentences from each chunk
-                const sentences = chunk.text.split(/[.!?]+/).slice(0, 2);
-                return sentences.join('. ').trim();
-            })
-            .filter(s => s.length > 20)
-            .join('\n\n');
+    // Build context from knowledge chunks
+    const knowledgeContext = knowledgeChunks
+        .slice(0, 3)
+        .map(chunk => chunk.text)
+        .join('\n\n');
 
-        if (relevantInfo) {
-            parts.push(relevantInfo);
+    // Build context from answer library (lower similarity matches)
+    const answerContext = answerMatches
+        .slice(0, 2)
+        .map(a => `Q: ${a.question}\nA: ${a.answer}`)
+        .join('\n\n');
+
+    console.log('Context built:', {
+        hasKnowledgeContext: !!knowledgeContext,
+        knowledgeContextLength: knowledgeContext?.length || 0,
+        hasAnswerContext: !!answerContext,
+        hasTrainingContext: !!trainingContext
+    });
+
+    // If we have context, use Gemini to synthesize a proper answer
+    if (knowledgeContext || answerContext || trainingContext) {
+        try {
+            console.log('Calling Gemini Cloud Function...');
+            const { httpsCallable } = await import('firebase/functions');
+            const { functions } = await import('./firebase');
+
+            const generateResponse = httpsCallable(functions, 'generateAIResponse');
+
+            const prompt = `You are an RFP response writer. Based on the following company information, write a professional, concise response to this RFP question.
+
+QUESTION: ${question}
+
+${knowledgeContext ? `COMPANY KNOWLEDGE BASE:\n${knowledgeContext}\n` : ''}
+${answerContext ? `SIMILAR PAST ANSWERS:\n${answerContext}\n` : ''}
+${trainingContext ? `WINNING RESPONSE PATTERNS:\n${trainingContext}\n` : ''}
+
+INSTRUCTIONS:
+1. Write a direct, professional answer to the question
+2. Use specific facts and figures from the provided context
+3. Keep the response concise (2-4 sentences unless more detail is needed)
+4. Write in first person plural ("We", "Our organization")
+5. Do NOT include markdown headers or bullet points unless specifically asked
+6. Do NOT copy the context verbatim - synthesize it into a natural response
+${trainingContext ? '7. Learn from the winning response patterns - adopt similar tone and structure' : ''}
+
+RESPONSE:`;
+
+            const result = await generateResponse({
+                questionText: prompt,
+                actionType: 'generate',
+                tone: 'professional'
+            });
+
+            console.log('Gemini Cloud Function result:', {
+                success: !!result.data?.response,
+                responseLength: result.data?.response?.length || 0
+            });
+
+            if (result.data?.response) {
+                return result.data.response;
+            }
+        } catch (error) {
+            console.error('Gemini synthesis error - DETAILS:', {
+                message: error.message,
+                code: error.code,
+                details: error.details
+            });
+            // Fall back to extracting key info from context
         }
     }
 
-    // If we still have no content, generate a placeholder
-    if (parts.length === 0) {
-        return generateFallbackResponse(question);
+    // Fallback: Extract key sentences from knowledge chunks (IMPROVED)
+    console.log('Falling back to extractRelevantSentences');
+    if (knowledgeChunks.length > 0) {
+        const relevantInfo = extractRelevantSentences(question, knowledgeChunks);
+        if (relevantInfo) {
+            return relevantInfo;
+        }
     }
 
-    return parts.join('\n\n');
+    // Last resort: use fallback response
+    console.log('Using fallback response (no context found)');
+    return generateFallbackResponse(question);
+};
+
+/**
+ * Extract relevant sentences from knowledge chunks based on question keywords
+ */
+const extractRelevantSentences = (question, knowledgeChunks) => {
+    const questionWords = question.toLowerCase()
+        .split(/\s+/)
+        .filter(w => w.length > 4)
+        .filter(w => !STOP_WORDS.has(w));
+
+    const allSentences = [];
+
+    knowledgeChunks.forEach(chunk => {
+        const sentences = chunk.text.split(/[.!?]+/).filter(s => s.trim().length > 20);
+        sentences.forEach(sentence => {
+            const sentenceLower = sentence.toLowerCase();
+            let score = 0;
+            questionWords.forEach(word => {
+                if (sentenceLower.includes(word)) score++;
+            });
+            if (score > 0) {
+                allSentences.push({ sentence: sentence.trim(), score });
+            }
+        });
+    });
+
+    // Sort by relevance and take top 3 sentences
+    const topSentences = allSentences
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3)
+        .map(s => s.sentence);
+
+    if (topSentences.length > 0) {
+        return topSentences.join('. ') + '.';
+    }
+
+    return null;
 };
 
 /**
  * Calculate trust score based on source quality
  */
 const calculateTrustScoreFromSources = (answerMatches, knowledgeChunks) => {
-    let score = 50; // Base score
+    let score = 55; // Base score (slightly higher since we're using real AI)
 
     // Boost for Answer Library matches
     if (answerMatches.length > 0) {
         const topSimilarity = answerMatches[0].similarity;
-        score += Math.min(25, topSimilarity / 4);
+        score += Math.min(25, topSimilarity / 3); // Increased from /4
     }
 
-    // Boost for Knowledge Library matches
+    // Boost for Knowledge Library matches (increased since AI synthesizes well)
     if (knowledgeChunks.length > 0) {
-        score += Math.min(15, knowledgeChunks.length * 3);
+        score += Math.min(25, knowledgeChunks.length * 5); // Increased from 15 max to 25 max
     }
 
     // Additional boost for multiple sources
     if (answerMatches.length > 0 && knowledgeChunks.length > 0) {
-        score += 5; // Corroborated by multiple sources
+        score += 10; // Corroborated by multiple sources (increased from 5)
     }
 
     return Math.min(95, Math.round(score));

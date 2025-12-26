@@ -34,7 +34,6 @@ import TeamPage from './pages/TeamPage';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import AnswerLibraryPage from './pages/AnswerLibraryPage';
 import AnalyticsPage from './pages/AnalyticsPage';
-import BrandingPage from './pages/BrandingPage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import NotFoundPage from './pages/NotFoundPage';
 import TrialSignupPage from './pages/TrialSignupPage';
@@ -43,6 +42,7 @@ import DPAPage from './pages/DPAPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import MyTasksPage from './pages/MyTasksPage';
 import './index.css';
+
 
 function App() {
   return (
@@ -100,7 +100,6 @@ function App() {
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/answers" element={<AnswerLibraryPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
-              <Route path="/branding" element={<BrandingPage />} />
               <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/docs" element={<DocsPage />} />
               <Route path="/trial-signup" element={<TrialSignupPage />} />

@@ -8,7 +8,8 @@ export default function NewProjectModal({ onClose, onCreate }) {
         client: '',
         type: 'rfp',
         priority: 'medium',
-        dueDate: ''
+        dueDate: '',
+        visibility: 'personal' // personal or team
     });
     const [file, setFile] = useState(null);
     const [uploading, setUploading] = useState(false);
@@ -165,6 +166,41 @@ export default function NewProjectModal({ onClose, onCreate }) {
                                     <option value="medium">Medium</option>
                                     <option value="low">Low</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        {/* Visibility Setting */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Project Visibility
+                            </label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, visibility: 'personal' }))}
+                                    disabled={uploading}
+                                    className={`p-4 rounded-lg border-2 text-center transition-all ${formData.visibility === 'personal'
+                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                            : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                                        }`}
+                                >
+                                    <span className="text-2xl block mb-1">👤</span>
+                                    <span className="font-medium">Personal</span>
+                                    <p className="text-xs mt-1 text-gray-500">Only you can see</p>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData(prev => ({ ...prev, visibility: 'team' }))}
+                                    disabled={uploading}
+                                    className={`p-4 rounded-lg border-2 text-center transition-all ${formData.visibility === 'team'
+                                            ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                            : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                                        }`}
+                                >
+                                    <span className="text-2xl block mb-1">👥</span>
+                                    <span className="font-medium">Team</span>
+                                    <p className="text-xs mt-1 text-gray-500">Team members can access</p>
+                                </button>
                             </div>
                         </div>
 

@@ -14,7 +14,7 @@ import {
     addReaction
 } from '../services/commentService';
 
-export default function CommentThread({ projectId, questionId, questionText, onClose }) {
+export default function CommentThread({ projectId, questionId, questionText, onClose, ownerId, onCountChange }) {
     const { user } = useAuth();
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
@@ -23,17 +23,28 @@ export default function CommentThread({ projectId, questionId, questionText, onC
     const [editingId, setEditingId] = useState(null);
     const [editText, setEditText] = useState('');
 
+    // Use ownerId for team collaboration, fallback to user.uid
+    const projectOwnerId = ownerId || user?.uid;
+
     // Subscribe to comments
     useEffect(() => {
-        if (!user?.uid || !projectId || !questionId) return;
+        if (!projectOwnerId || !projectId || !questionId) return;
 
-        const unsubscribe = subscribeToComments(user.uid, projectId, questionId, (data) => {
+        console.log('[CommentThread] Subscribing to comments:', { projectOwnerId, projectId, questionId });
+
+        const unsubscribe = subscribeToComments(projectOwnerId, projectId, questionId, (data) => {
+            console.log('[CommentThread] Received comments:', data.length);
             setComments(data);
             setLoading(false);
+            // Notify parent of comment count change
+            if (onCountChange) {
+                onCountChange(questionId, data.length);
+            }
         });
 
         return () => unsubscribe();
-    }, [user, projectId, questionId]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectOwnerId, projectId, questionId]); // Intentionally omit onCountChange to prevent loop
 
     // Handle submit new comment
     const handleSubmit = async (e) => {
@@ -42,7 +53,7 @@ export default function CommentThread({ projectId, questionId, questionText, onC
 
         setSubmitting(true);
         try {
-            await addComment(user.uid, projectId, questionId, {
+            await addComment(projectOwnerId, projectId, questionId, {
                 text: newComment.trim(),
                 authorId: user.uid,
                 authorName: user.displayName || user.email,
@@ -59,7 +70,7 @@ export default function CommentThread({ projectId, questionId, questionText, onC
     const handleEdit = async (commentId) => {
         if (!editText.trim()) return;
         try {
-            await updateComment(user.uid, projectId, commentId, editText.trim());
+            await updateComment(projectOwnerId, projectId, commentId, editText.trim());
             setEditingId(null);
             setEditText('');
         } catch (error) {
@@ -71,7 +82,7 @@ export default function CommentThread({ projectId, questionId, questionText, onC
     const handleDelete = async (commentId) => {
         if (!window.confirm('Delete this comment?')) return;
         try {
-            await deleteComment(user.uid, projectId, commentId);
+            await deleteComment(projectOwnerId, projectId, commentId);
         } catch (error) {
             console.error('Failed to delete:', error);
         }
@@ -80,7 +91,7 @@ export default function CommentThread({ projectId, questionId, questionText, onC
     // Handle resolve
     const handleResolve = async (commentId, currentState) => {
         try {
-            await resolveComment(user.uid, projectId, commentId, !currentState);
+            await resolveComment(projectOwnerId, projectId, commentId, !currentState);
         } catch (error) {
             console.error('Failed to resolve:', error);
         }
@@ -141,8 +152,8 @@ export default function CommentThread({ projectId, questionId, questionText, onC
                             <div
                                 key={comment.id}
                                 className={`p-3 rounded-lg ${comment.isResolved
-                                        ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-                                        : 'bg-gray-50 dark:bg-gray-700'
+                                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                                    : 'bg-gray-50 dark:bg-gray-700'
                                     }`}
                             >
                                 <div className="flex items-start gap-3">
@@ -178,7 +189,7 @@ export default function CommentThread({ projectId, questionId, questionText, onC
                                                 <textarea
                                                     value={editText}
                                                     onChange={(e) => setEditText(e.target.value)}
-                                                    className="w-full p-2 border rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                                                    className="w-full p-2 border rounded-lg text-sm text-gray-900 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                                                     rows={2}
                                                 />
                                                 <div className="flex gap-2 mt-2">
@@ -243,7 +254,7 @@ export default function CommentThread({ projectId, questionId, questionText, onC
                             value={newComment}
                             onChange={(e) => setNewComment(e.target.value)}
                             placeholder="Add a comment..."
-                            className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                            className="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 dark:bg-gray-700 dark:text-white"
                         />
                         <button
                             type="submit"

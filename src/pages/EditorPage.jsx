@@ -12,6 +12,7 @@ import { reviewAnswer, getQualityScore, getQualityBadge } from '../services/aiRe
 import { translateText, LANGUAGES } from '../services/translationService';
 import { getQuestionComments } from '../services/commentService';
 import { incrementUsage, checkLimit } from '../services/usageService';
+import { notifyProjectExported, notifyProjectApproved } from '../services/notificationService';
 import VersionHistoryModal from '../components/VersionHistoryModal';
 import CommentThread from '../components/CommentThread';
 
@@ -80,30 +81,59 @@ export default function EditorPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
 
+    // Editor filter state - show only questions assigned to them
+    const [showOnlyMyQuestions, setShowOnlyMyQuestions] = useState(false);
+
+    // Helper: Get the best available display name for the current user
+    const getCurrentUserDisplayName = () => {
+        // Check all possible sources for the display name
+        // Priority: Firebase Auth displayName > Firestore displayName > Firestore name > email prefix
+
+        const authDisplayName = user?.displayName;
+        const firestoreDisplayName = userData?.displayName;
+        const firestoreName = userData?.name;
+        const emailPrefix = user?.email ? user.email.split('@')[0] : null;
+
+        // Find the first non-null, non-empty value
+        const name = authDisplayName || firestoreDisplayName || firestoreName || emailPrefix || 'User';
+
+        console.log('[EditorPage] getCurrentUserDisplayName result:', name, {
+            authDisplayName,
+            firestoreDisplayName,
+            firestoreName,
+            emailPrefix,
+            userEmail: user?.email,
+            userId: user?.uid
+        });
+
+        return name;
+    };
+
     // Presence subscription
     useEffect(() => {
-        if (!projectId || !user?.uid) return;
+        // Use effectiveTeamId for team members
+        const projectOwnerId = effectiveTeamId || user?.uid;
+        if (!projectId || !projectOwnerId || !user?.uid) return;
 
-        // Update our presence & get project owner ID (assuming user owns the project for now)
-        const ownerId = user.uid;
-        updatePresence(ownerId, projectId, user.uid, {
+        // Update our presence
+        updatePresence(projectOwnerId, projectId, user.uid, {
             displayName: user.displayName || user.email,
             email: user.email,
             photoURL: user.photoURL
         });
 
         // Subscribe to presence updates
-        const unsubscribe = subscribeToPresence(ownerId, projectId, (presence) => {
+        const unsubscribe = subscribeToPresence(projectOwnerId, projectId, (presence) => {
             const viewers = formatPresenceList(presence, user.uid);
             setActiveViewers(viewers);
         });
 
         // Cleanup on unmount
         return () => {
-            removePresence(ownerId, projectId, user.uid);
+            removePresence(projectOwnerId, projectId, user.uid);
             unsubscribe();
         };
-    }, [projectId, user]);
+    }, [projectId, user, effectiveTeamId]);
 
     // Fetch RFP or Project data
     useEffect(() => {
@@ -222,7 +252,9 @@ export default function EditorPage() {
 
     // Real-time sync listener for collaborative editing
     useEffect(() => {
-        if (!projectId || !user?.uid) return;
+        // Use effectiveTeamId for team members
+        const projectOwnerId = effectiveTeamId || user?.uid;
+        if (!projectId || !projectOwnerId) return;
 
         let unsubscribe = null;
         const setupRealtimeSync = async () => {
@@ -230,7 +262,7 @@ export default function EditorPage() {
                 const { doc, onSnapshot } = await import('firebase/firestore');
                 const { db } = await import('../services/firebase');
 
-                const projectRef = doc(db, `users/${user.uid}/projects`, projectId);
+                const projectRef = doc(db, `users/${projectOwnerId}/projects`, projectId);
                 unsubscribe = onSnapshot(projectRef, (snapshot) => {
                     if (!snapshot.exists()) return;
 
@@ -264,18 +296,20 @@ export default function EditorPage() {
         return () => {
             if (unsubscribe) unsubscribe();
         };
-    }, [projectId, user?.uid, editingIndex]);
+    }, [projectId, effectiveTeamId, user?.uid, editingIndex]);
 
     // Flatten all questions for pagination
     const getAllQuestions = () => {
         if (!rfp?.sections) return [];
         const questions = [];
+        let originalIndex = 0;
         rfp.sections.forEach((section, sectionIndex) => {
             section.questions?.forEach((question, questionIndex) => {
                 questions.push({
                     ...question,
                     sectionIndex,
                     questionIndex,
+                    originalIndex: originalIndex++, // Track original position for display
                     sectionName: section.name || section.title || `Section ${sectionIndex + 1}`
                 });
             });
@@ -286,7 +320,7 @@ export default function EditorPage() {
     const allQuestions = getAllQuestions();
 
     // Filter questions by search query
-    const filteredQuestions = searchQuery.trim()
+    let filteredQuestions = searchQuery.trim()
         ? allQuestions.filter(q => {
             const query = searchQuery.toLowerCase();
             const questionMatch = (q.text || q.question || '').toLowerCase().includes(query);
@@ -295,6 +329,11 @@ export default function EditorPage() {
             return questionMatch || answerMatch || sectionMatch;
         })
         : allQuestions;
+
+    // EDITOR FILTER: Show only questions assigned to the current editor
+    if (showOnlyMyQuestions && teamRole === 'editor' && isTeamMember) {
+        filteredQuestions = filteredQuestions.filter(q => q.assignedTo === user?.email);
+    }
 
     const totalQuestions = filteredQuestions.length;
     const totalPages = Math.ceil(totalQuestions / QUESTIONS_PER_PAGE);
@@ -305,8 +344,11 @@ export default function EditorPage() {
     // AI response generator with RAG integration
     const generateResponse = async (questionText) => {
         try {
+            // Use effectiveTeamId for knowledge base - team members use team owner's knowledge
+            const knowledgeOwner = effectiveTeamId || user.uid;
+
             // Use the new AI generation service with RAG
-            const result = await generateAIResponse(user.uid, questionText);
+            const result = await generateAIResponse(knowledgeOwner, questionText);
 
             return {
                 response: result.response,
@@ -339,6 +381,26 @@ export default function EditorPage() {
         if (questionsToGenerate.length === 0) {
             alert('All questions already have responses!');
             return;
+        }
+
+        // TEAM PERMISSION: Editors can only generate for questions assigned to them
+        if (teamRole === 'editor' && isTeamMember) {
+            const assignedQuestions = questionsToGenerate.filter(q => q.assignedTo === user?.email);
+            if (assignedQuestions.length === 0) {
+                alert('You can only generate responses for questions assigned to you. No assigned questions need generation.');
+                return;
+            }
+            if (assignedQuestions.length < questionsToGenerate.length) {
+                const proceed = window.confirm(
+                    `As an editor, you can only generate responses for questions assigned to you.\n\n` +
+                    `${assignedQuestions.length} of ${questionsToGenerate.length} questions are assigned to you.\n\n` +
+                    `Click OK to generate responses for your ${assignedQuestions.length} assigned questions.`
+                );
+                if (!proceed) return;
+                // Filter to only assigned questions
+                questionsToGenerate.length = 0;
+                questionsToGenerate.push(...assignedQuestions);
+            }
         }
 
         // Check AI generation limit before proceeding
@@ -388,7 +450,13 @@ export default function EditorPage() {
                     response: aiResult.response,
                     status: 'generated',
                     trustScore: aiResult.trustScore,
-                    sources: aiResult.sources || []
+                    sources: aiResult.sources || [],
+                    generatedAt: new Date().toISOString(),
+                    generatedBy: {
+                        email: user?.email,
+                        name: getCurrentUserDisplayName(),
+                        uid: user?.uid
+                    }
                 };
 
                 updates.push({
@@ -398,16 +466,24 @@ export default function EditorPage() {
                         response: aiResult.response,
                         status: 'generated',
                         trustScore: aiResult.trustScore,
-                        sources: aiResult.sources || []
+                        sources: aiResult.sources || [],
+                        generatedAt: new Date().toISOString(),
+                        generatedBy: {
+                            email: user?.email,
+                            name: getCurrentUserDisplayName(),
+                            uid: user?.uid
+                        }
                     }
                 });
 
                 setBatchProgress({ current: alreadyDone + i + 1, total: alreadyDone + questionsToProcess.length });
             }
 
-            if (projectId && user?.uid) {
-                await batchUpdateQuestions(user.uid, projectId, updates);
-                // Track AI usage for all generated responses
+            // Use effectiveTeamId for team members to access owner's project
+            const projectOwnerId = effectiveTeamId || user?.uid;
+            if (projectId && projectOwnerId) {
+                await batchUpdateQuestions(projectOwnerId, projectId, updates);
+                // Track AI usage for the current user
                 await incrementUsage(user.uid, 'aiResponse', questionsToProcess.length);
             }
 
@@ -440,6 +516,15 @@ export default function EditorPage() {
             }
         }
 
+        // TEAM PERMISSION: Editors can only regenerate questions assigned to them
+        if (teamRole === 'editor' && isTeamMember) {
+            const assignedTo = question.assignedTo;
+            if (!assignedTo || assignedTo !== user?.email) {
+                alert(`You can only regenerate questions assigned to you. This question is ${assignedTo ? `assigned to ${assignedTo}` : 'unassigned'}.`);
+                return;
+            }
+        }
+
         // Check if answer is locked (approved or final)
         const status = question.workflowStatus || question.status;
         if (status === 'approved' || status === 'final') {
@@ -463,7 +548,7 @@ export default function EditorPage() {
                 id: `v_${Date.now()}`,
                 content: currentQuestion.response,
                 editedAt: new Date().toISOString(),
-                editedBy: { name: userData?.displayName || user?.email || 'User', uid: user?.uid },
+                editedBy: { name: getCurrentUserDisplayName(), email: user?.email, uid: user?.uid },
                 changeType: currentQuestion.status || 'generated',
                 trustScore: currentQuestion.trustScore
             };
@@ -480,16 +565,26 @@ export default function EditorPage() {
             currentQuestion.trustScore = aiResult.trustScore;
             currentQuestion.sources = aiResult.sources || [];
             currentQuestion.lastEditedAt = new Date().toISOString();
+            currentQuestion.generatedAt = new Date().toISOString();
+            currentQuestion.generatedBy = {
+                email: user?.email,
+                name: getCurrentUserDisplayName(),
+                uid: user?.uid
+            };
 
-            if (projectId && user?.uid) {
-                await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
+            // Use effectiveTeamId for team members
+            const projectOwnerId = effectiveTeamId || user?.uid;
+            if (projectId && projectOwnerId) {
+                await updateProjectQuestion(projectOwnerId, projectId, question.sectionIndex, question.questionIndex, {
                     response: aiResult.response,
                     status: 'generated',
                     workflowStatus: 'draft',
                     trustScore: aiResult.trustScore,
                     sources: aiResult.sources || [],
                     versions: currentQuestion.versions,
-                    lastEditedAt: currentQuestion.lastEditedAt
+                    lastEditedAt: currentQuestion.lastEditedAt,
+                    generatedAt: currentQuestion.generatedAt,
+                    generatedBy: currentQuestion.generatedBy
                 });
                 // Track AI usage
                 await incrementUsage(user.uid, 'aiResponse');
@@ -518,7 +613,7 @@ export default function EditorPage() {
                     id: `v_${Date.now()}`,
                     content: currentQuestion.response,
                     editedAt: new Date().toISOString(),
-                    editedBy: { name: userData?.displayName || user?.email || 'User', uid: user?.uid },
+                    editedBy: { name: getCurrentUserDisplayName(), email: user?.email, uid: user?.uid },
                     changeType: currentQuestion.status || 'draft',
                     trustScore: currentQuestion.trustScore
                 };
@@ -529,6 +624,12 @@ export default function EditorPage() {
             currentQuestion.response = editText;
             currentQuestion.status = 'edited';
             currentQuestion.lastEditedAt = new Date().toISOString();
+
+            currentQuestion.lastEditedBy = {
+                email: user?.email,
+                name: getCurrentUserDisplayName(),
+                uid: user?.uid
+            };
             currentQuestion.lockedBy = null;
             currentQuestion.lockedAt = null;
 
@@ -541,6 +642,7 @@ export default function EditorPage() {
                     status: 'edited',
                     versions: currentQuestion.versions,
                     lastEditedAt: currentQuestion.lastEditedAt,
+                    lastEditedBy: currentQuestion.lastEditedBy,
                     lockedBy: null,
                     lockedAt: null
                 });
@@ -559,16 +661,45 @@ export default function EditorPage() {
     const startEditing = async (globalIndex) => {
         const question = allQuestions[globalIndex];
 
+        // Verify the user still has access to this project
+        // If the RFP has an ownerId and it's not the current user, 
+        // they must be an active team member to edit
+        const projectOwnerId = rfp?.ownerId || rfp?.owner || effectiveTeamId;
+        if (projectOwnerId && projectOwnerId !== user?.uid) {
+            // This is not the user's own project - verify they're a team member
+            if (!userData?.teamId || userData.teamId !== projectOwnerId) {
+                alert('You no longer have access to this project. You may have left the team.');
+                return;
+            }
+        }
+
         // TEAM COLLABORATION: Check if we can edit this question
-        if (!canEdit && teamRole === 'viewer') {
-            alert('Viewers cannot edit questions.');
+        if (!canEdit) {
+            console.log('[EditorPage] Edit denied - canEdit:', canEdit, 'teamRole:', teamRole);
+            alert(`Your role (${teamRole}) does not have permission to edit. Contact your team admin.`);
             return;
         }
 
-        // Check if assigned to someone else (for editors)
-        if (teamRole === 'editor' && question.assignedTo && question.assignedTo !== user?.email) {
-            alert(`This question is assigned to ${question.assignedTo}. Contact an admin to reassign it.`);
-            return;
+        // For editors (not admins/owners): MUST be assigned to them to edit
+        // Admins and owners can edit any question regardless of assignment
+        console.log('[EditorPage] Edit permission check:', {
+            teamRole,
+            isTeamMember,
+            userEmail: user?.email,
+            assignedTo: question.assignedTo,
+            condition: teamRole === 'editor' && isTeamMember
+        });
+
+        if (teamRole === 'editor' && isTeamMember) {
+            const assignedTo = question.assignedTo;
+
+            // Editors can ONLY edit questions assigned to them
+            if (!assignedTo || assignedTo !== user?.email) {
+                // Not assigned to this editor
+                console.log('[EditorPage] BLOCKING: Editor cannot edit this question');
+                alert(`You can only edit questions assigned to you. This question is ${assignedTo ? `assigned to ${assignedTo}` : 'unassigned'}.`);
+                return;
+            }
         }
 
         // Check if locked by another user
@@ -619,12 +750,27 @@ export default function EditorPage() {
     // Handle workflow status change
     const handleStatusChange = async (globalIndex, newStatus) => {
         const question = allQuestions[globalIndex];
+
+        // Permission check: Only admins/owners can set to approved or final
+        if (['approved', 'final'].includes(newStatus) && !canApprove) {
+            alert('Only team admins or owners can approve or finalize answers.');
+            return;
+        }
+
+        // Editors and viewers cannot change status at all when in another team
+        if (isTeamMember && !canApprove) {
+            alert('You do not have permission to change workflow status. Contact your team admin.');
+            return;
+        }
+
         try {
             const updatedRfp = JSON.parse(JSON.stringify(rfp));
             updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].workflowStatus = newStatus;
 
-            if (projectId && user?.uid) {
-                await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
+            // Use effectiveTeamId for team members
+            const projectOwnerId = effectiveTeamId || user?.uid;
+            if (projectId && projectOwnerId) {
+                await updateProjectQuestion(projectOwnerId, projectId, question.sectionIndex, question.questionIndex, {
                     workflowStatus: newStatus,
                     statusUpdatedAt: new Date().toISOString()
                 });
@@ -652,8 +798,10 @@ export default function EditorPage() {
             updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].response = translated;
             updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].translatedTo = targetLang;
 
-            if (projectId && user?.uid) {
-                await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
+            // Use effectiveTeamId for team members
+            const projectOwnerId = effectiveTeamId || user?.uid;
+            if (projectId && projectOwnerId) {
+                await updateProjectQuestion(projectOwnerId, projectId, question.sectionIndex, question.questionIndex, {
                     response: translated,
                     translatedTo: targetLang
                 });
@@ -667,19 +815,43 @@ export default function EditorPage() {
         setTranslating(null);
     };
 
-    // Run AI review on a question
+    // Run AI review on a question - uses local cache only
+    // NOTE: Removed Firestore auto-save to prevent infinite loop with real-time sync
     const runAiReview = (globalIndex, question) => {
         if (!question.response) return null;
 
-        // Check cache first
-        if (aiReviews[globalIndex]) return aiReviews[globalIndex];
+        // Use originalIndex for consistent caching even when filtering
+        const cacheKey = question.originalIndex ?? globalIndex;
 
-        const issues = reviewAnswer(question.question, question.response);
+        // Check if question already has a saved AI review (from Firestore)
+        if (question.aiReview && question.aiReview.score) {
+            // Use the saved review - ensures team sees same score
+            if (!aiReviews[cacheKey]) {
+                setAiReviews(prev => ({ ...prev, [cacheKey]: question.aiReview }));
+            }
+            return question.aiReview;
+        }
+
+        // Check local cache 
+        if (aiReviews[cacheKey]) return aiReviews[cacheKey];
+
+        // Use question.text or question.question (different RFP formats)
+        const questionText = question.text || question.question || '';
+        const issues = reviewAnswer(questionText, question.response);
         const score = getQualityScore(issues);
         const badge = getQualityBadge(score);
 
-        const review = { issues, score, badge };
-        setAiReviews(prev => ({ ...prev, [globalIndex]: review }));
+        const review = {
+            issues,
+            score,
+            badge,
+            reviewedAt: new Date().toISOString(),
+            reviewedBy: getCurrentUserDisplayName()
+        };
+
+        // Update local cache only - no Firestore save to prevent infinite loop
+        setAiReviews(prev => ({ ...prev, [cacheKey]: review }));
+
         return review;
     };
 
@@ -719,13 +891,15 @@ export default function EditorPage() {
             updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].response = suggestion.answer;
             updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].status = 'generated';
 
-            if (projectId && user?.uid) {
-                await updateProjectQuestion(user.uid, projectId, question.sectionIndex, question.questionIndex, {
+            // Use effectiveTeamId for team members
+            const projectOwnerId = effectiveTeamId || user?.uid;
+            if (projectId && projectOwnerId) {
+                await updateProjectQuestion(projectOwnerId, projectId, question.sectionIndex, question.questionIndex, {
                     response: suggestion.answer,
                     status: 'generated'
                 });
                 // Increment usage count for the suggestion
-                await incrementUsageCount(user.uid, suggestion.id);
+                await incrementUsageCount(effectiveTeamId || user.uid, suggestion.id);
             }
 
             setRfp(updatedRfp);
@@ -764,7 +938,7 @@ export default function EditorPage() {
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <Link to="/dashboard">
+                            <Link to="/projects">
                                 <button className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg transition-colors">
                                     ← Back
                                 </button>
@@ -865,8 +1039,8 @@ export default function EditorPage() {
                                 )}
                             </button>
 
-                            {/* TEAM COLLABORATION: Distribute Evenly Button - Opens Modal */}
-                            {canApprove && teamMembers.length > 0 && (
+                            {/* TEAM COLLABORATION: Distribute Evenly Button - Only for team projects */}
+                            {rfp?.visibility === 'team' && canApprove && teamMembers.length > 0 && (
                                 <button
                                     onClick={() => {
                                         const unassigned = allQuestions.filter(q => !q.assignedTo);
@@ -898,8 +1072,16 @@ export default function EditorPage() {
                             {/* Export PDF */}
                             <button
                                 onClick={async () => {
-                                    exportToPDF(rfp);
-                                    if (user?.uid) await incrementUsage(user.uid, 'export');
+                                    await exportToPDF(rfp);
+                                    if (user?.uid) {
+                                        await incrementUsage(user.uid, 'export');
+                                        // Send notification
+                                        notifyProjectExported(user.uid, {
+                                            projectId,
+                                            projectName: rfp?.name || 'Project',
+                                            format: 'PDF'
+                                        }).catch(err => console.error('Export notification error:', err));
+                                    }
                                     alert('PDF downloaded!');
                                 }}
                                 className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
@@ -911,7 +1093,15 @@ export default function EditorPage() {
                             <button
                                 onClick={async () => {
                                     await exportToWord(rfp);
-                                    if (user?.uid) await incrementUsage(user.uid, 'export');
+                                    if (user?.uid) {
+                                        await incrementUsage(user.uid, 'export');
+                                        // Send notification
+                                        notifyProjectExported(user.uid, {
+                                            projectId,
+                                            projectName: rfp?.name || 'Project',
+                                            format: 'Word'
+                                        }).catch(err => console.error('Export notification error:', err));
+                                    }
                                     alert('Word downloaded!');
                                 }}
                                 className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
@@ -939,8 +1129,40 @@ export default function EditorPage() {
                         <h2 className="text-xl font-bold text-gray-900">Questions Index</h2>
                         <p className="text-sm text-gray-500">
                             Showing {startIndex + 1}–{endIndex} of {totalQuestions} questions
+                            {showOnlyMyQuestions && teamRole === 'editor' && ' (My questions only)'}
                         </p>
                     </div>
+
+                    {/* Editor Filter: My Questions Toggle */}
+                    {teamRole === 'editor' && isTeamMember && (
+                        <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-2 rounded-lg">
+                            <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">📋 Filter:</span>
+                            <button
+                                onClick={() => {
+                                    setShowOnlyMyQuestions(false);
+                                    setCurrentPage(1);
+                                }}
+                                className={`px-3 py-1 text-sm rounded-lg transition-colors ${!showOnlyMyQuestions
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                                    }`}
+                            >
+                                All
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowOnlyMyQuestions(true);
+                                    setCurrentPage(1);
+                                }}
+                                className={`px-3 py-1 text-sm rounded-lg transition-colors ${showOnlyMyQuestions
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                                    }`}
+                            >
+                                My Questions
+                            </button>
+                        </div>
+                    )}
 
                     {/* Pagination */}
                     {totalPages > 1 && (
@@ -969,10 +1191,11 @@ export default function EditorPage() {
                 {/* Questions List */}
                 <div className="space-y-4">
                     {currentPageQuestions.map((question, idx) => {
-                        const globalIndex = startIndex + idx;
+                        // Use originalIndex for all operations - this is the true index in allQuestions
+                        const originalIdx = question.originalIndex;
                         const status = getStatusBadge(question);
-                        const isEditing = editingIndex === globalIndex;
-                        const isRegenerating = regeneratingIndex === globalIndex;
+                        const isEditing = editingIndex === originalIdx;
+                        const isRegenerating = regeneratingIndex === originalIdx;
 
                         return (
                             <div
@@ -983,28 +1206,36 @@ export default function EditorPage() {
                                 <div className="flex items-start justify-between gap-4 mb-3">
                                     <div className="flex items-center gap-3">
                                         <span className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm">
-                                            {globalIndex + 1}
+                                            {question.originalIndex + 1}
                                         </span>
                                         <div className="relative">
-                                            {/* Clickable Status Badge */}
-                                            <button
-                                                onClick={() => setStatusDropdownIndex(statusDropdownIndex === globalIndex ? null : globalIndex)}
-                                                className={`text-xs px-2 py-1 rounded-full ${status.bg} ${status.text} font-medium cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1`}
-                                                disabled={!question.response}
-                                            >
-                                                {status.icon && <span>{status.icon}</span>}
-                                                {status.label}
-                                                {question.response && <span className="ml-1">▼</span>}
-                                            </button>
+                                            {/* Clickable Status Badge - Only clickable for admins/owners or own projects */}
+                                            {(!isTeamMember || canApprove) ? (
+                                                <button
+                                                    onClick={() => setStatusDropdownIndex(statusDropdownIndex === originalIdx ? null : originalIdx)}
+                                                    className={`text-xs px-2 py-1 rounded-full ${status.bg} ${status.text} font-medium cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1`}
+                                                    disabled={!question.response}
+                                                >
+                                                    {status.icon && <span>{status.icon}</span>}
+                                                    {status.label}
+                                                    {question.response && <span className="ml-1">▼</span>}
+                                                </button>
+                                            ) : (
+                                                /* Read-only status badge for editors/viewers */
+                                                <span className={`text-xs px-2 py-1 rounded-full ${status.bg} ${status.text} font-medium flex items-center gap-1`}>
+                                                    {status.icon && <span>{status.icon}</span>}
+                                                    {status.label}
+                                                </span>
+                                            )}
 
-                                            {/* Status Dropdown */}
-                                            {statusDropdownIndex === globalIndex && question.response && (
+                                            {/* Status Dropdown - Only for admins/owners or own projects */}
+                                            {statusDropdownIndex === originalIdx && question.response && (!isTeamMember || canApprove) && (
                                                 <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[140px]">
                                                     {WORKFLOW_STATUSES.map(ws => (
                                                         <button
                                                             key={ws.id}
-                                                            onClick={() => handleStatusChange(globalIndex, ws.id)}
-                                                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 ${(question.workflowStatus || 'draft') === ws.id ? 'bg-gray-50 font-medium' : ''
+                                                            onClick={() => handleStatusChange(originalIdx, ws.id)}
+                                                            className={`w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 ${(question.workflowStatus || 'draft') === ws.id ? 'bg-gray-50 dark:bg-gray-600 font-medium' : ''
                                                                 }`}
                                                         >
                                                             <span>{ws.icon}</span>
@@ -1017,53 +1248,84 @@ export default function EditorPage() {
                                             <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{question.sectionName}</span>
                                         </div>
 
-                                        {/* TEAM COLLABORATION: Assignee Badge */}
-                                        {question.assignedTo ? (
-                                            <div className="relative ml-2">
-                                                <button
-                                                    onClick={() => canApprove && setShowAssignDropdown(showAssignDropdown === globalIndex ? null : globalIndex)}
-                                                    className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 ${canApprove ? 'hover:bg-indigo-200 cursor-pointer' : 'cursor-default'}`}
-                                                    disabled={!canApprove}
-                                                >
-                                                    <span>👤</span>
-                                                    <span className="max-w-[100px] truncate">{question.assignedTo.split('@')[0]}</span>
-                                                    {canApprove && <span className="ml-0.5">▼</span>}
-                                                </button>
+                                        {/* TEAM COLLABORATION: Assignee Badge - Only for team projects */}
+                                        {rfp?.visibility === 'team' && question.assignedTo ? (() => {
+                                            // Check if assignee is still a valid team member
+                                            // They're stale if:
+                                            // 1. NOT the current user (owner viewing their own assignment is fine)
+                                            // 2. NOT in the active teamMembers list
+                                            // 3. We have at least some team context to validate against
+                                            const assignedEmail = question.assignedTo;
+                                            const isCurrentUser = assignedEmail === user?.email;
+                                            const isActiveTeamMember = teamMembers.find(m => m.email === assignedEmail);
 
-                                                {/* Reassign Dropdown */}
-                                                {showAssignDropdown === globalIndex && canApprove && teamMembers.length > 0 && (
-                                                    <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[180px] max-h-48 overflow-y-auto">
-                                                        <div className="px-3 py-1.5 text-xs font-medium text-gray-500 border-b">Assign to:</div>
-                                                        {teamMembers.map(member => (
-                                                            <button
-                                                                key={member.email || member.id}
-                                                                onClick={() => handleAssignQuestion(globalIndex, member.email)}
-                                                                disabled={assigningQuestion === globalIndex}
-                                                                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 ${question.assignedTo === member.email ? 'bg-indigo-50' : ''}`}
-                                                            >
-                                                                <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs text-white font-bold">
-                                                                    {(member.displayName || member.email || '?')[0].toUpperCase()}
-                                                                </span>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <p className="truncate text-gray-900 dark:text-white">{member.displayName || member.email?.split('@')[0]}</p>
-                                                                    <p className="text-xs text-gray-500">{member.role || 'member'}</p>
+                                            // Stale if not current user AND not found in active team members
+                                            // But only if we're the owner who can see teamMembers
+                                            const isStaleAssignment = canApprove &&
+                                                !isCurrentUser &&
+                                                !isActiveTeamMember;
+
+                                            return (
+                                                <div className="relative ml-2">
+                                                    <button
+                                                        onClick={() => canApprove && setShowAssignDropdown(showAssignDropdown === originalIdx ? null : originalIdx)}
+                                                        className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${isStaleAssignment
+                                                            ? 'bg-red-100 text-red-700 border border-red-300'
+                                                            : 'bg-indigo-100 text-indigo-700'
+                                                            } ${canApprove ? 'hover:bg-opacity-80 cursor-pointer' : 'cursor-default'}`}
+                                                        disabled={!canApprove}
+                                                        title={isStaleAssignment ? `${question.assignedTo} left the team - click to reassign` : ''}
+                                                    >
+                                                        <span>{isStaleAssignment ? '⚠️' : '👤'}</span>
+                                                        <span className="max-w-[100px] truncate">{question.assignedTo.split('@')[0]}</span>
+                                                        {isStaleAssignment && <span className="text-[10px]">(left)</span>}
+                                                        {canApprove && <span className="ml-0.5">▼</span>}
+                                                    </button>
+
+                                                    {/* Reassign Dropdown - show if there are members OR if it's a stale assignment (to unassign) */}
+                                                    {showAssignDropdown === originalIdx && canApprove && (isStaleAssignment || teamMembers.length > 0) && (
+                                                        <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[180px] max-h-48 overflow-y-auto">
+                                                            {teamMembers.length > 0 && (
+                                                                <>
+                                                                    <div className="px-3 py-1.5 text-xs font-medium text-gray-500 border-b">Assign to:</div>
+                                                                    {teamMembers.map(member => (
+                                                                        <button
+                                                                            key={member.email || member.id}
+                                                                            onClick={() => handleAssignQuestion(originalIdx, member.email)}
+                                                                            disabled={assigningQuestion === originalIdx}
+                                                                            className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2 ${question.assignedTo === member.email ? 'bg-indigo-50' : ''}`}
+                                                                        >
+                                                                            <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs text-white font-bold">
+                                                                                {(member.displayName || member.email || '?')[0].toUpperCase()}
+                                                                            </span>
+                                                                            <div className="flex-1 min-w-0">
+                                                                                <p className="truncate text-gray-900 dark:text-white">{member.displayName || member.email?.split('@')[0]}</p>
+                                                                                <p className="text-xs text-gray-500">{member.role || 'member'}</p>
+                                                                            </div>
+                                                                            {question.assignedTo === member.email && <span className="text-green-600">✓</span>}
+                                                                        </button>
+                                                                    ))}
+                                                                </>
+                                                            )}
+                                                            {teamMembers.length === 0 && isStaleAssignment && (
+                                                                <div className="px-3 py-2 text-xs text-gray-500 border-b">
+                                                                    No active team members
                                                                 </div>
-                                                                {question.assignedTo === member.email && <span className="text-green-600">✓</span>}
+                                                            )}
+                                                            <button
+                                                                onClick={() => handleAssignQuestion(originalIdx, null)}
+                                                                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 border-t mt-1"
+                                                            >
+                                                                ❌ Unassign
                                                             </button>
-                                                        ))}
-                                                        <button
-                                                            onClick={() => handleAssignQuestion(globalIndex, null)}
-                                                            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 border-t mt-1"
-                                                        >
-                                                            ❌ Unassign
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : canApprove && teamMembers.length > 0 ? (
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })() : rfp?.visibility === 'team' && canApprove && teamMembers.length > 0 ? (
                                             <div className="relative ml-2">
                                                 <button
-                                                    onClick={() => setShowAssignDropdown(showAssignDropdown === globalIndex ? null : globalIndex)}
+                                                    onClick={() => setShowAssignDropdown(showAssignDropdown === originalIdx ? null : originalIdx)}
                                                     className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
                                                 >
                                                     <span>➕</span>
@@ -1071,14 +1333,14 @@ export default function EditorPage() {
                                                 </button>
 
                                                 {/* Assign Dropdown */}
-                                                {showAssignDropdown === globalIndex && (
+                                                {showAssignDropdown === originalIdx && (
                                                     <div className="absolute left-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[180px] max-h-48 overflow-y-auto">
                                                         <div className="px-3 py-1.5 text-xs font-medium text-gray-500 border-b">Assign to:</div>
                                                         {teamMembers.map(member => (
                                                             <button
                                                                 key={member.email || member.id}
-                                                                onClick={() => handleAssignQuestion(globalIndex, member.email)}
-                                                                disabled={assigningQuestion === globalIndex}
+                                                                onClick={() => handleAssignQuestion(originalIdx, member.email)}
+                                                                disabled={assigningQuestion === originalIdx}
                                                                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
                                                             >
                                                                 <span className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs text-white font-bold">
@@ -1106,27 +1368,27 @@ export default function EditorPage() {
                                         {!isEditing && (
                                             <>
                                                 <button
-                                                    onClick={() => handleRegenerate(globalIndex)}
+                                                    onClick={() => handleRegenerate(originalIdx)}
                                                     disabled={isRegenerating}
                                                     className="px-3 py-1.5 text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg font-medium transition-colors disabled:opacity-50"
                                                 >
                                                     {isRegenerating ? '⏳' : '🔄'} Regenerate
                                                 </button>
                                                 <button
-                                                    onClick={() => handleGetSuggestions(globalIndex)}
-                                                    className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${showSuggestions === globalIndex ? 'bg-green-600 text-white' : 'bg-green-100 hover:bg-green-200 text-green-700'}`}
+                                                    onClick={() => handleGetSuggestions(originalIdx)}
+                                                    className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${showSuggestions === originalIdx ? 'bg-green-600 text-white' : 'bg-green-100 hover:bg-green-200 text-green-700'}`}
                                                 >
                                                     💬 Suggest
                                                 </button>
                                                 <button
-                                                    onClick={() => startEditing(globalIndex)}
+                                                    onClick={() => startEditing(originalIdx)}
                                                     className="px-3 py-1.5 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg font-medium transition-colors"
                                                 >
                                                     ✏️ Edit
                                                 </button>
                                                 {question.versions?.length > 0 && (
                                                     <button
-                                                        onClick={() => setShowVersionHistory(globalIndex)}
+                                                        onClick={() => setShowVersionHistory(originalIdx)}
                                                         className="px-3 py-1.5 text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg font-medium transition-colors"
                                                     >
                                                         📜 History ({question.versions.length})
@@ -1135,29 +1397,34 @@ export default function EditorPage() {
 
                                                 {/* Comment Button */}
                                                 <button
-                                                    onClick={() => setShowComments({ index: globalIndex, questionText: question.text })}
+                                                    onClick={() => setShowComments({
+                                                        index: originalIdx,
+                                                        questionText: question.text,
+                                                        sectionIndex: question.sectionIndex,
+                                                        questionIndex: question.questionIndex
+                                                    })}
                                                     className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
                                                 >
-                                                    💬 Comment
+                                                    💬 Comment{(question.commentCount || commentCounts[`q${originalIdx}`]) > 0 && ` (${question.commentCount || commentCounts[`q${originalIdx}`]})`}
                                                 </button>
 
                                                 {/* Translate Button */}
                                                 {question.response && (
                                                     <div className="relative">
                                                         <button
-                                                            onClick={() => setShowTranslateMenu(showTranslateMenu === globalIndex ? null : globalIndex)}
-                                                            disabled={translating === globalIndex}
+                                                            onClick={() => setShowTranslateMenu(showTranslateMenu === originalIdx ? null : originalIdx)}
+                                                            disabled={translating === originalIdx}
                                                             className="px-3 py-1.5 text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg font-medium transition-colors disabled:opacity-50"
                                                         >
-                                                            {translating === globalIndex ? '⏳' : '🌐'} Translate
+                                                            {translating === originalIdx ? '⏳' : '🌐'} Translate
                                                         </button>
-                                                        {showTranslateMenu === globalIndex && (
+                                                        {showTranslateMenu === originalIdx && (
                                                             <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl border border-gray-200 dark:border-gray-600 py-1 z-50 min-w-[150px] max-h-48 overflow-y-auto">
                                                                 {LANGUAGES.slice(0, 8).map(lang => (
                                                                     <button
                                                                         key={lang.code}
-                                                                        onClick={() => handleTranslate(globalIndex, lang.code)}
-                                                                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                                                                        onClick={() => handleTranslate(originalIdx, lang.code)}
+                                                                        className="w-full text-left px-3 py-2 text-sm text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center gap-2"
                                                                     >
                                                                         <span>{lang.flag}</span>
                                                                         <span>{lang.name}</span>
@@ -1188,7 +1455,7 @@ export default function EditorPage() {
                                         />
                                         <div className="flex gap-2">
                                             <button
-                                                onClick={() => handleSaveEdit(globalIndex)}
+                                                onClick={() => handleSaveEdit(originalIdx)}
                                                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm transition-colors"
                                             >
                                                 ✓ Save
@@ -1207,9 +1474,32 @@ export default function EditorPage() {
                                             {question.response}
                                         </div>
 
+                                        {/* Response Attribution */}
+                                        {(question.generatedBy || question.lastEditedBy) && (
+                                            <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                <span className="flex items-center gap-1">
+                                                    {question.lastEditedBy ? (
+                                                        <>
+                                                            ✏️ Edited by <span className="font-medium text-gray-700 dark:text-gray-300">{question.lastEditedBy.name || question.lastEditedBy.email?.split('@')[0]}</span>
+                                                            {question.lastEditedAt && (
+                                                                <span className="text-gray-400">• {new Date(question.lastEditedAt).toLocaleDateString()}</span>
+                                                            )}
+                                                        </>
+                                                    ) : question.generatedBy ? (
+                                                        <>
+                                                            🤖 Generated by <span className="font-medium text-gray-700 dark:text-gray-300">{question.generatedBy.name || question.generatedBy.email?.split('@')[0]}</span>
+                                                            {question.generatedAt && (
+                                                                <span className="text-gray-400">• {new Date(question.generatedAt).toLocaleDateString()}</span>
+                                                            )}
+                                                        </>
+                                                    ) : null}
+                                                </span>
+                                            </div>
+                                        )}
+
                                         {/* AI Review Badge */}
                                         {(() => {
-                                            const review = runAiReview(globalIndex, question);
+                                            const review = runAiReview(originalIdx, question);
                                             if (!review || review.issues.length === 0) return null;
                                             return (
                                                 <div className={`mt-2 p-3 rounded-lg border ${review.badge.color === 'green' ? 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700' :
@@ -1241,7 +1531,7 @@ export default function EditorPage() {
                                 )}
 
                                 {/* Suggestions Panel */}
-                                {showSuggestions === globalIndex && (
+                                {showSuggestions === originalIdx && (
                                     <div className="mt-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
                                         <h4 className="text-sm font-semibold text-green-800 dark:text-green-300 mb-3">
                                             💬 Suggested Answers from Library
@@ -1264,7 +1554,7 @@ export default function EditorPage() {
                                                                 {suggestion.similarity}% match
                                                             </span>
                                                             <button
-                                                                onClick={() => handleUseSuggestion(globalIndex, suggestion)}
+                                                                onClick={() => handleUseSuggestion(originalIdx, suggestion)}
                                                                 className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium"
                                                             >
                                                                 Use This
@@ -1346,9 +1636,11 @@ export default function EditorPage() {
                             updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].response = restoredContent;
                             updatedRfp.sections[question.sectionIndex].questions[question.questionIndex].status = 'restored';
 
-                            if (projectId && user?.uid) {
+                            // Use effectiveTeamId for team members
+                            const projectOwnerId = effectiveTeamId || user?.uid;
+                            if (projectId && projectOwnerId) {
                                 await updateProjectQuestion(
-                                    user.uid,
+                                    projectOwnerId,
                                     projectId,
                                     question.sectionIndex,
                                     question.questionIndex,
@@ -1377,6 +1669,13 @@ export default function EditorPage() {
                     questionId={`q${showComments.index}`}
                     questionText={showComments.questionText}
                     onClose={() => setShowComments(null)}
+                    ownerId={effectiveTeamId || user?.uid}
+                    sectionIndex={showComments.sectionIndex}
+                    questionIndex={showComments.questionIndex}
+                    onCountChange={(qId, count) => {
+                        // Just update local state - no Firestore save to prevent loops
+                        setCommentCounts(prev => ({ ...prev, [qId]: count }));
+                    }}
                 />
             )}
 

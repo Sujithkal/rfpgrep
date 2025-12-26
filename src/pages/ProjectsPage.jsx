@@ -7,33 +7,52 @@ import NewProjectModal from '../components/NewProjectModal';
 
 export default function ProjectsPage() {
     const [projects, setProjects] = useState([]);
-    const [loading, setLoading] = useState(false); // Changed to false - show page immediately
+    const [loading, setLoading] = useState(false);
     const [showNewProjectModal, setShowNewProjectModal] = useState(false);
-    const [filter, setFilter] = useState('all'); // all | active | review | submitted
+    const [filter, setFilter] = useState('all'); // all | active | review | submitted | team | personal
     const [searchQuery, setSearchQuery] = useState('');
-    const { user: currentUser } = useAuth(); // Renamed from user to currentUser for clarity
+    const { user: currentUser, effectiveTeamId, isTeamMember, isTeamOwner, canEdit } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Simplified - just load if user exists, don't block page
         if (currentUser) {
-            console.log('User logged in:', currentUser.uid);
+            console.log('[ProjectsPage] User logged in:', currentUser.uid);
+            console.log('[ProjectsPage] Effective Team ID:', effectiveTeamId);
+            console.log('[ProjectsPage] Is Team Member:', isTeamMember);
             loadProjects();
-        } else {
-            console.log('No user or still loading auth');
         }
-    }, [currentUser]);
+    }, [currentUser, effectiveTeamId]);
 
     const loadProjects = async () => {
         if (!currentUser?.uid) return;
 
         try {
-            console.log('Fetching projects...');
-            const projectsData = await getProjects(currentUser.uid);
-            console.log('Got projects:', projectsData.length);
-            setProjects(projectsData);
+            console.log('[ProjectsPage] Fetching projects...');
+
+            // If user is a team member, fetch team owner's projects
+            const ownerIdToFetch = effectiveTeamId || currentUser.uid;
+            console.log('[ProjectsPage] Fetching from owner:', ownerIdToFetch);
+
+            const projectsData = await getProjects(ownerIdToFetch);
+
+            // Mark each project with its source
+            let projectsWithSource = projectsData.map(p => ({
+                ...p,
+                isTeamProject: p.visibility === 'team', // Use visibility setting
+                isPersonalProject: p.visibility !== 'team',
+                ownerId: ownerIdToFetch
+            }));
+
+            // If user is a team member (not owner), filter out personal projects
+            if (isTeamMember && !isTeamOwner) {
+                console.log('[ProjectsPage] Filtering personal projects for team member');
+                projectsWithSource = projectsWithSource.filter(p => p.visibility === 'team');
+            }
+
+            console.log('[ProjectsPage] Got projects:', projectsWithSource.length);
+            setProjects(projectsWithSource);
         } catch (error) {
-            console.error('Error loading projects:', error);
+            console.error('[ProjectsPage] Error loading projects:', error);
             setProjects([]);
         }
     };
@@ -151,6 +170,22 @@ export default function ProjectsPage() {
         } catch (error) {
             console.error('Error updating outcome:', error);
             alert('Failed to update outcome');
+        }
+    };
+
+    // Handle visibility change (team vs personal)
+    const handleUpdateVisibility = async (e, projectId, newVisibility) => {
+        e.stopPropagation(); // Prevent card click
+        try {
+            const ownerId = effectiveTeamId || currentUser.uid;
+            await updateProject(ownerId, projectId, { visibility: newVisibility });
+            // Update local state
+            setProjects(prev => prev.map(p =>
+                p.id === projectId ? { ...p, visibility: newVisibility, isTeamProject: newVisibility === 'team' } : p
+            ));
+        } catch (error) {
+            console.error('Error updating visibility:', error);
+            alert('Failed to update visibility');
         }
     };
 
@@ -303,9 +338,39 @@ export default function ProjectsPage() {
                                     {/* Header */}
                                     <div className="p-6 border-b border-gray-100">
                                         <div className="flex items-start justify-between mb-3">
-                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors flex-1">
-                                                {project.name}
-                                            </h3>
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">
+                                                        {project.name}
+                                                    </h3>
+                                                    {/* Team/Personal Visibility Selector (for owners/admins) */}
+                                                    {isTeamOwner ? (
+                                                        <select
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            value={project.visibility || 'personal'}
+                                                            onChange={(e) => handleUpdateVisibility(e, project.id, e.target.value)}
+                                                            className={`text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer border-0 ${project.visibility === 'team'
+                                                                    ? 'bg-purple-100 text-purple-700'
+                                                                    : 'bg-gray-100 text-gray-600'
+                                                                }`}
+                                                        >
+                                                            <option value="personal">👤 Personal</option>
+                                                            <option value="team">👥 Team</option>
+                                                        </select>
+                                                    ) : (
+                                                        /* Show static badge for non-owners */
+                                                        project.visibility === 'team' ? (
+                                                            <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">
+                                                                👥 Team
+                                                            </span>
+                                                        ) : (
+                                                            <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+                                                                👤 Personal
+                                                            </span>
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
                                             <select
                                                 onClick={(e) => e.stopPropagation()}
                                                 value={project.status}

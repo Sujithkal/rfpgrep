@@ -150,7 +150,7 @@ export default function BrandingPage() {
                                 value={branding.companyName}
                                 onChange={(e) => setBranding(prev => ({ ...prev, companyName: e.target.value }))}
                                 placeholder="Your Company Name"
-                                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
                             />
                         </div>
 
@@ -222,7 +222,7 @@ export default function BrandingPage() {
                                             type="text"
                                             value={branding.primaryColor}
                                             onChange={(e) => setBranding(prev => ({ ...prev, primaryColor: e.target.value }))}
-                                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
                                         />
                                     </div>
                                 </div>
@@ -239,7 +239,7 @@ export default function BrandingPage() {
                                             type="text"
                                             value={branding.secondaryColor}
                                             onChange={(e) => setBranding(prev => ({ ...prev, secondaryColor: e.target.value }))}
-                                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
                                         />
                                     </div>
                                 </div>

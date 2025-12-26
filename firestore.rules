@@ -49,8 +49,9 @@ service cloud.firestore {
     // USER DATA
     // ===============================================
     match /users/{userId} {
-      // Users can read their own profile
-      allow read: if isOwner(userId);
+      // Users can read their own profile OR team members can read their team owner's profile
+      allow read: if isOwner(userId)
+        || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == userId);
       
       // Users can create their own profile
       allow create: if isAuthenticated() 
@@ -58,10 +59,8 @@ service cloud.firestore {
         && validStringLength(request.resource.data.email, 254)
         && validStringLength(request.resource.data.displayName, 100);
       
-      // Users can update their profile with validation
-      allow update: if isOwner(userId)
-        && (!('email' in request.resource.data) || validStringLength(request.resource.data.email, 254))
-        && (!('displayName' in request.resource.data) || validStringLength(request.resource.data.displayName, 100));
+      // Users can update their profile (integrations, apiKeys, preferences, etc.)
+      allow update: if isOwner(userId);
       
       // Users cannot delete their profile (admin only)
       allow delete: if false;
@@ -78,7 +77,7 @@ service cloud.firestore {
         
         // Helper: Get requester's role in the team
         function getTeamRole() {
-          return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+          return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamRole;
         }
         
         // Read: Owner or team members can read
@@ -96,6 +95,19 @@ service cloud.firestore {
         // Delete: Only owner or admin
         allow delete: if isOwner(userId) 
           || (isTeamMemberOf(userId) && getTeamRole() == 'admin');
+        
+        // Comments subcollection under projects - ALL team members can comment
+        match /comments/{commentId} {
+          // Read: Owner or any team member can read comments
+          allow read: if isOwner(userId) || isTeamMemberOf(userId);
+          
+          // Create: Owner or any team member can add comments
+          allow create: if isOwner(userId) || isTeamMemberOf(userId);
+          
+          // Update/Delete: Only the comment author can edit/delete their own comments
+          allow update, delete: if isOwner(userId) 
+            || (isTeamMemberOf(userId) && resource.data.authorId == request.auth.uid);
+        }
       }
       
       // User's standalone RFPs (for migration)
@@ -105,31 +117,99 @@ service cloud.firestore {
       
       // User's team subcollection
       match /team/{memberId} {
-        allow read: if isOwner(userId);
+        // Owner can read all team members, OR team members can read their team's members
+        allow read: if isOwner(userId)
+          || (isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == userId);
+        
+        // Owner can create team members
         allow create: if isOwner(userId)
           && validStringLength(request.resource.data.email, 254);
-        allow update, delete: if isOwner(userId);
+        
+        // Owner can update/delete, OR the team member can update/delete their own record
+        // (memberId is the email of the team member)
+        allow update: if isOwner(userId) 
+          || (isAuthenticated() && memberId == request.auth.token.email);
+        
+        // Owner can delete anyone, OR member can delete themselves (to leave team)
+        allow delete: if isOwner(userId)
+          || (isAuthenticated() && memberId == request.auth.token.email);
+      }
+      
+      // User's notifications subcollection
+      match /notifications/{notificationId} {
+        // Users can read their own notifications
+        allow read: if isOwner(userId);
+        
+        // Anyone can create notifications for a user (for team invites, assignments, etc.)
+        // This allows team members to send notifications to each other
+        allow create: if isAuthenticated();
+        
+        // Users can only update their own notifications (to mark as read)
+        allow update: if isOwner(userId);
+        
+        // Users can delete their own notifications
+        allow delete: if isOwner(userId);
       }
       
       // User's answer library
+      // TEAM COLLABORATION: Allow team members to read answer library
       match /answers/{answerId} {
-        allow read: if isOwner(userId);
+        function isTeamMemberOf2(ownerId) {
+          return isAuthenticated() 
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == ownerId;
+        }
+        allow read: if isOwner(userId) || isTeamMemberOf2(userId);
         allow create: if isOwner(userId)
           && validStringLength(request.resource.data.question, 5000)
           && validStringLength(request.resource.data.answer, 10000);
         allow update, delete: if isOwner(userId);
       }
+      
+      // User's training examples from winning responses
+      match /trainingExamples/{exampleId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && validStringLength(request.resource.data.questionText, 5000)
+          && validStringLength(request.resource.data.winningResponse, 10000);
+        allow update, delete: if isOwner(userId);
+      }
 
       // User's knowledge chunks
+      // TEAM COLLABORATION: Allow team members to read knowledge chunks
       match /knowledgeChunks/{chunkId} {
-        allow read: if isOwner(userId);
+        function isTeamMemberOf3(ownerId) {
+          return isAuthenticated() 
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == ownerId;
+        }
+        allow read: if isOwner(userId) || isTeamMemberOf3(userId);
         allow write: if false; // Only Cloud Functions write
       }
 
       // User's knowledge metadata
+      // TEAM COLLABORATION: Allow team members to read knowledge metadata
       match /knowledgeMeta/{metaId} {
-        allow read: if isOwner(userId);
+        function isTeamMemberOf4(ownerId) {
+          return isAuthenticated() 
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == ownerId;
+        }
+        allow read: if isOwner(userId) || isTeamMemberOf4(userId);
         allow write: if false; // Only Cloud Functions write
+      }
+
+      // User's answer library (alternative collection name)
+      // TEAM COLLABORATION: Allow team members to read
+      match /answerLibrary/{answerId} {
+        function isTeamMemberOf5(ownerId) {
+          return isAuthenticated() 
+            && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.teamId == ownerId;
+        }
+        allow read: if isOwner(userId) || isTeamMemberOf5(userId);
+        allow create: if isOwner(userId);
+        allow update, delete: if isOwner(userId);
       }
     }
 
@@ -166,6 +246,21 @@ service cloud.firestore {
     match /usage/{userId} {
       allow read: if isOwner(userId);
       allow write: if isAuthenticated();
+    }
+
+    // ===============================================
+    // PENDING INVITES (for team collaboration)
+    // ===============================================
+    match /pendingInvites/{inviteId} {
+      // Anyone authenticated can create invites
+      allow create: if isAuthenticated();
+      
+      // Allow read for querying - the query filters by email
+      allow read: if isAuthenticated();
+      
+      // Anyone authenticated can update/delete for now
+      // (we verify email match in app code)
+      allow update, delete: if isAuthenticated();
     }
 
     // ===============================================

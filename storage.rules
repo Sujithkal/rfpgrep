@@ -2,57 +2,9 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Team RFP files - Simplified rules for initial access
-    match /teams/{teamId}/rfps/{rfpId}/{allPaths=**} {
-      // Allow read if authenticated
-      allow read: if request.auth != null;
-      
-      // Allow write if authenticated, within size/type limits
-      allow write: if request.auth != null &&
-                      request.resource.size < 50 * 1024 * 1024 && // 50MB limit
-                      request.resource.contentType.matches('application/pdf|application/vnd.openxmlformats-officedocument.*|application/vnd.ms-excel|application/msword');
-    }
-
-    // User Project files (new structure)
-    match /users/{userId}/projects/{projectId}/{allPaths=**} {
-      // Allow read if authenticated
-      allow read: if request.auth != null;
-      
-      // Allow write if authenticated and owner, within size/type limits
-      allow write: if request.auth != null &&
-                      request.auth.uid == userId &&
-                      request.resource.size < 50 * 1024 * 1024 && // 50MB limit
-                      request.resource.contentType.matches('application/pdf|application/vnd.openxmlformats-officedocument.*|application/vnd.ms-excel|application/msword');
-    }
-
-    // User Knowledge Library files
-    match /users/{userId}/knowledge/{fileName} {
-      // Allow read if authenticated
-      allow read: if request.auth != null;
-      
-      // Allow write if authenticated and owner, within size/type limits
-      // Supports PDF, Word docs, and plain text
-      allow write: if request.auth != null &&
-                      request.auth.uid == userId &&
-                      request.resource.size < 10 * 1024 * 1024 && // 10MB limit
-                      request.resource.contentType.matches('application/pdf|application/vnd.openxmlformats-officedocument.*|application/msword|text/plain');
-      
-      // Allow delete only by owner
-      allow delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // User avatars
-    match /users/{userId}/avatar {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-                      request.auth.uid == userId &&
-                      request.resource.size < 5 * 1024 * 1024 && // 5MB limit
-                      request.resource.contentType.matches('image/.*');
-    }
-
-    // Deny all other access
+    // Allow authenticated users to read/write all paths (simplified for debugging)
     match /{allPaths=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null;
     }
   }
 }

@@ -6,9 +6,10 @@ import { getRFPs, deleteRFP } from '../services/rfpService';
 import { getProjects, deleteProject } from '../services/projectService';
 import ThemeToggle from '../components/ThemeToggle';
 import NotificationCenter from '../components/NotificationCenter';
+import PendingInvites from '../components/PendingInvites';
 
 export default function DashboardPage() {
-    const { user, userData, loading, effectiveTeamId, isTeamMember, teamRole, canEdit } = useAuth();
+    const { user, userData, loading, effectiveTeamId, isTeamMember, isTeamOwner, teamRole, canEdit } = useAuth();
     const navigate = useNavigate();
     const [rfps, setRfps] = useState([]);
     const [loadingRfps, setLoadingRfps] = useState(true);
@@ -61,8 +62,15 @@ export default function DashboardPage() {
                 // Fetch projects from the effective team (owner's projects if team member)
                 if (teamIdToFetch) {
                     try {
-                        const projects = await getProjects(teamIdToFetch);
+                        let projects = await getProjects(teamIdToFetch);
                         console.log('Dashboard: Got projects:', projects.length, isTeamMember ? '(from team owner)' : '(own projects)');
+
+                        // TEAM COLLABORATION: Filter out personal projects for team members
+                        if (isTeamMember && !isTeamOwner) {
+                            projects = projects.filter(p => p.visibility === 'team');
+                            console.log('Dashboard: Filtered to team-only projects:', projects.length);
+                        }
+
                         projects.forEach(project => {
                             allRfps.push({ ...project, isProject: true });
                         });
@@ -256,14 +264,6 @@ export default function DashboardPage() {
                                         </Link>
                                         <div className="my-1 border-t border-gray-100 dark:border-gray-700"></div>
                                         <Link
-                                            to="/branding"
-                                            onClick={() => setShowProfileDropdown(false)}
-                                            className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                        >
-                                            <span>🎨</span>
-                                            <span>Branding</span>
-                                        </Link>
-                                        <Link
                                             to="/integrations"
                                             onClick={() => setShowProfileDropdown(false)}
                                             className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -278,6 +278,14 @@ export default function DashboardPage() {
                                         >
                                             <span>⚙️</span>
                                             <span>Settings</span>
+                                        </Link>
+                                        <Link
+                                            to="/help"
+                                            onClick={() => setShowProfileDropdown(false)}
+                                            className="flex items-center gap-3 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                        >
+                                            <span>❓</span>
+                                            <span>Help Center</span>
                                         </Link>
                                         <Link
                                             to="/pricing"
@@ -319,6 +327,9 @@ export default function DashboardPage() {
                         Here's what's happening with your RFPs today
                     </p>
                 </div>
+
+                {/* Pending Team Invitations */}
+                <PendingInvites />
 
                 {/* Usage Counters */}
                 <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -391,18 +402,25 @@ export default function DashboardPage() {
                                 rfps.slice(0, 3).map((rfp) => (
                                     <div key={rfp.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer border border-gray-100 dark:border-gray-600 group">
                                         <Link to={`/editor?projectId=${rfp.id}`} className="flex-1 min-w-0">
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{rfp.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{rfp.name}</p>
+                                                {isTeamMember && (
+                                                    <span className="px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded">
+                                                        👥
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                                 {rfp.totalQuestions || 0} questions • {rfp.fileType?.toUpperCase()}
                                             </p>
                                         </Link>
                                         <div className="flex items-center gap-2 ml-2 flex-shrink-0">
                                             <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${rfp.status === 'ready' || rfp.status === 'approved' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                                                    rfp.status === 'processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-                                                        rfp.status === 'in-progress' || rfp.status === 'draft' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' :
-                                                            rfp.status === 'review' || rfp.status === 'in_review' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
-                                                                rfp.status === 'submitted' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' :
-                                                                    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                                                rfp.status === 'processing' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                                                    rfp.status === 'in-progress' || rfp.status === 'draft' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' :
+                                                        rfp.status === 'review' || rfp.status === 'in_review' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300' :
+                                                            rfp.status === 'submitted' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' :
+                                                                'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
                                                 }`}>
                                                 {rfp.status === 'ready' ? 'Ready' :
                                                     rfp.status === 'approved' ? 'Approved' :

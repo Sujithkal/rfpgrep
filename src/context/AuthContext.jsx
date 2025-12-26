@@ -73,7 +73,18 @@ export const AuthProvider = ({ children }) => {
         const teamId = userData.teamId || user.uid;
         const isTeamOwner = !userData.teamId || userData.teamId === user.uid;
         const isTeamMember = userData.teamId && userData.teamId !== user.uid;
-        const role = isTeamOwner ? 'owner' : (userData.role || 'viewer');
+
+        // Use teamRole (set during invite accept) or role, default to viewer
+        const role = isTeamOwner ? 'owner' : (userData.teamRole || userData.role || 'viewer');
+
+        console.log('[AuthContext] Team context computed:', {
+            teamId,
+            isTeamOwner,
+            isTeamMember,
+            role,
+            userDataTeamRole: userData.teamRole,
+            userDataRole: userData.role
+        });
 
         return {
             effectiveTeamId: teamId,           // The team to load data for

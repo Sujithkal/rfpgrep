@@ -39,7 +39,17 @@ export const NOTIFICATION_TYPES = {
     CHANGES_REQUESTED: 'changes_requested',  // Your submission needs changes
     SUBMITTED_FOR_REVIEW: 'submitted_for_review', // Editor submitted for review
     MEMBER_JOINED: 'member_joined',      // New team member joined
-    MEMBER_REMOVED: 'member_removed'     // Team member removed
+    MEMBER_REMOVED: 'member_removed',    // Team member removed
+
+    // Project lifecycle types
+    PROJECT_CREATED: 'project_created',     // New project created
+    PROJECT_APPROVED: 'project_approved',   // Project marked as approved
+    PROJECT_SUBMITTED: 'project_submitted', // Project submitted
+    PROJECT_EXPORTED: 'project_exported',   // Project exported to PDF/DOC
+
+    // Usage types
+    USAGE_WARNING: 'usage_warning',         // Approaching usage limit
+    USAGE_LIMIT_REACHED: 'usage_limit_reached'  // Usage limit reached
 };
 
 /**
@@ -175,6 +185,14 @@ export const getNotificationIcon = (type) => {
         case NOTIFICATION_TYPES.SUBMITTED_FOR_REVIEW: return '👀';
         case NOTIFICATION_TYPES.MEMBER_JOINED: return '🎉';
         case NOTIFICATION_TYPES.MEMBER_REMOVED: return '👋';
+        // Project lifecycle types
+        case NOTIFICATION_TYPES.PROJECT_CREATED: return '📄';
+        case NOTIFICATION_TYPES.PROJECT_APPROVED: return '✅';
+        case NOTIFICATION_TYPES.PROJECT_SUBMITTED: return '🚀';
+        case NOTIFICATION_TYPES.PROJECT_EXPORTED: return '📤';
+        // Usage types
+        case NOTIFICATION_TYPES.USAGE_WARNING: return '⚠️';
+        case NOTIFICATION_TYPES.USAGE_LIMIT_REACHED: return '🛑';
         default: return '🔔';
     }
 };
@@ -257,4 +275,105 @@ const truncateText = (text, maxLength) => {
     if (!text) return '';
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+};
+
+/**
+ * PROJECT LIFECYCLE NOTIFICATION HELPERS
+ */
+
+/**
+ * Notify user of team invitation
+ */
+export const notifyTeamInvite = async (inviteeUserId, data) => {
+    return createNotification(inviteeUserId, {
+        type: NOTIFICATION_TYPES.TEAM_INVITE,
+        title: 'Team Invitation 🎉',
+        message: `${data.inviterName} invited you to join their team as ${data.role}`,
+        data: {
+            inviterId: data.inviterId,
+            inviterName: data.inviterName,
+            role: data.role
+        }
+    });
+};
+
+/**
+ * Notify team members of new project created
+ */
+export const notifyProjectCreated = async (userId, data) => {
+    return createNotification(userId, {
+        type: NOTIFICATION_TYPES.PROJECT_CREATED,
+        title: 'New Project Created 📄',
+        message: `"${data.projectName}" was created with ${data.totalQuestions} questions`,
+        data: {
+            projectId: data.projectId,
+            projectName: data.projectName,
+            createdBy: data.createdBy
+        }
+    });
+};
+
+/**
+ * Notify team members project was approved
+ */
+export const notifyProjectApproved = async (userId, data) => {
+    return createNotification(userId, {
+        type: NOTIFICATION_TYPES.PROJECT_APPROVED,
+        title: 'Project Approved ✅',
+        message: `"${data.projectName}" has been marked as approved by ${data.approvedBy}`,
+        data: {
+            projectId: data.projectId,
+            projectName: data.projectName,
+            approvedBy: data.approvedBy
+        }
+    });
+};
+
+/**
+ * Notify user about project export
+ */
+export const notifyProjectExported = async (userId, data) => {
+    return createNotification(userId, {
+        type: NOTIFICATION_TYPES.PROJECT_EXPORTED,
+        title: 'Project Exported 📤',
+        message: `"${data.projectName}" was exported to ${data.format.toUpperCase()}`,
+        data: {
+            projectId: data.projectId,
+            projectName: data.projectName,
+            format: data.format
+        }
+    });
+};
+
+/**
+ * Notify user of usage warning (approaching limit)
+ */
+export const notifyUsageWarning = async (userId, data) => {
+    return createNotification(userId, {
+        type: NOTIFICATION_TYPES.USAGE_WARNING,
+        title: 'Usage Warning ⚠️',
+        message: `You've used ${data.used}/${data.limit} ${data.resource} this month (${data.percentage}%)`,
+        data: {
+            resource: data.resource,
+            used: data.used,
+            limit: data.limit,
+            percentage: data.percentage
+        }
+    });
+};
+
+/**
+ * Notify user they've reached usage limit
+ */
+export const notifyUsageLimitReached = async (userId, data) => {
+    return createNotification(userId, {
+        type: NOTIFICATION_TYPES.USAGE_LIMIT_REACHED,
+        title: 'Usage Limit Reached 🛑',
+        message: `You've reached your ${data.resource} limit (${data.limit}/${data.period}). Upgrade to continue.`,
+        data: {
+            resource: data.resource,
+            limit: data.limit,
+            period: data.period
+        }
+    });
 };

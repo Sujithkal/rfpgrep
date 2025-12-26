@@ -13,29 +13,30 @@ export default function RoadmapPage() {
         },
         {
             quarter: 'Q1 2025',
-            status: 'in-progress',
+            status: 'completed',
             items: [
                 { title: 'Knowledge Library', desc: 'Upload and search company documents' },
                 { title: 'RAG Integration', desc: 'AI uses your docs for better answers' },
-                { title: 'Email Notifications', desc: 'Deadline reminders and team updates' },
+                { title: 'REST API', desc: 'Full API access with key authentication' },
+                { title: 'Slack/Teams Integrations', desc: 'Webhook notifications for project events' },
             ]
         },
         {
-            quarter: 'Q2 2025',
-            status: 'planned',
+            quarter: 'Q2 2025 (Current)',
+            status: 'in-progress',
             items: [
-                { title: 'API Access', desc: 'REST API for enterprise integrations' },
-                { title: 'Custom AI Training', desc: 'Fine-tune AI on your win history' },
-                { title: 'CRM Integrations', desc: 'Salesforce, HubSpot connections' },
+                { title: 'Custom AI Training', desc: 'AI learns from your winning responses ✓' },
+                { title: 'Win Rate Predictions', desc: 'AI-powered probability scoring ✓' },
+                { title: 'Email Notifications', desc: 'Deadline reminders and team updates' },
             ]
         },
         {
             quarter: 'Q3 2025',
             status: 'planned',
             items: [
-                { title: 'Advanced Analytics', desc: 'Win rate predictions and insights' },
+                { title: 'CRM Integrations', desc: 'Native Salesforce, HubSpot connections' },
                 { title: 'White-label Exports', desc: 'Custom branding for agencies' },
-                { title: 'Multi-language Support', desc: 'Generate responses in any language' },
+                { title: 'Multi-language Generation', desc: 'Generate responses in any language' },
             ]
         },
     ];

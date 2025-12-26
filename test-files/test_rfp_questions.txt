@@ -1,0 +1,63 @@
+REQUEST FOR PROPOSAL
+Enterprise Software Solutions
+RFP #2024-TECH-001
+
+==================================================
+SECTION 1: SECURITY & COMPLIANCE QUESTIONS
+==================================================
+
+1. What security certifications does your company hold? Please list all current certifications including SOC 2, ISO 27001, HIPAA, and any others.
+
+2. Describe your data encryption practices. How is data protected both at rest and in transit?
+
+3. Does your platform support multi-factor authentication (MFA)? Please describe your authentication mechanisms.
+
+4. Are you GDPR compliant? Please describe your data protection measures for European operations.
+
+5. How often do you conduct penetration testing and security audits?
+
+==================================================
+SECTION 2: TECHNICAL INFRASTRUCTURE
+==================================================
+
+6. What is your guaranteed uptime SLA? What has been your actual uptime over the past 12 months?
+
+7. Where are your data centers located? Do you have disaster recovery capabilities?
+
+8. Describe your backup and recovery procedures. What are your RTO and RPO targets?
+
+9. What API capabilities do you offer? Do you support REST and GraphQL?
+
+10. What pre-built integrations are available (e.g., Salesforce, Jira, Slack)?
+
+==================================================
+SECTION 3: COMPANY & SUPPORT
+==================================================
+
+11. How many employees does your company have? How many are dedicated engineers?
+
+12. What support options are available? Is 24/7 support included?
+
+13. Do you provide a dedicated Customer Success Manager?
+
+14. What is your typical implementation timeline for enterprise clients?
+
+15. What training resources do you provide for new users?
+
+==================================================
+SECTION 4: PRICING & CONTRACTS
+==================================================
+
+16. Describe your pricing model. Is it subscription-based or one-time license?
+
+17. What are your standard payment terms?
+
+18. Do you offer volume discounts for large deployments?
+
+==================================================
+SECTION 5: EXPERIENCE & REFERENCES
+==================================================
+
+19. How many enterprise clients do you currently serve?
+
+20. Do you have experience working with government agencies?

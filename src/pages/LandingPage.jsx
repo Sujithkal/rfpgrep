@@ -98,7 +98,7 @@ export default function LandingPage() {
                     </h1>
 
                     <p className="text-base sm:text-lg lg:text-xl text-text-secondary mb-8 sm:mb-12 leading-relaxed max-w-[700px] mx-auto px-2">
-                        Enterprise-grade AI that writes RFP responses your way. Trusted by 500+ teams globally.
+                        Enterprise-grade AI that writes RFP responses your way. Upload, generate, and export in minutes.
                     </p>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-5 mb-12 sm:mb-20">
@@ -118,13 +118,10 @@ export default function LandingPage() {
                     </div>
 
                     <div className="flex flex-col items-center gap-3 sm:gap-4">
-                        <p className="text-xs sm:text-sm text-text-secondary">✓ Trusted by 500+ enterprise teams worldwide</p>
-                        <div className="flex items-center gap-4 sm:gap-10 flex-wrap justify-center">
-                            {['Company 1', 'Company 2', 'Company 3', 'Company 4'].map((company, i) => (
-                                <div key={i} className="w-20 sm:w-[120px] h-8 sm:h-10 bg-bg-secondary border border-border-color rounded-lg flex items-center justify-center text-text-secondary text-[10px] sm:text-xs font-semibold">
-                                    {company}
-                                </div>
-                            ))}
+                        <div className="flex items-center gap-4 sm:gap-8 flex-wrap justify-center text-text-secondary text-xs sm:text-sm">
+                            <span className="flex items-center gap-2">✓ No credit card required</span>
+                            <span className="flex items-center gap-2">✓ 30-day free trial</span>
+                            <span className="flex items-center gap-2">✓ Cancel anytime</span>
                         </div>
                     </div>
                 </div>
@@ -195,22 +192,48 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* STATS SECTION */}
-            <section className="py-[120px] px-10 bg-bg-primary">
-                <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-15">
-                    {[
-                        { value: '10x', label: 'Faster responses' },
-                        { value: '73%', label: 'Average win rate' },
-                        { value: '500+', label: 'Enterprise clients' },
-                        { value: '50M+', label: 'Questions answered' },
-                    ].map((stat, i) => (
-                        <div key={i} className="text-center">
-                            <div className="text-[56px] font-extrabold bg-gradient-to-r from-accent-purple to-accent-pink bg-clip-text text-transparent mb-3 leading-none">
-                                {stat.value}
+            {/* HOW IT WORKS SECTION */}
+            <section className="py-16 sm:py-24 lg:py-[120px] px-4 sm:px-6 lg:px-10 bg-bg-primary">
+                <div className="max-w-7xl mx-auto">
+                    <div className="text-center mb-10 sm:mb-16 lg:mb-20 max-w-[800px] mx-auto">
+                        <p className="text-xs font-semibold text-accent-purple uppercase tracking-wider mb-3 sm:mb-4">HOW IT WORKS</p>
+                        <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-5 tracking-tight">From RFP to Response in 3 Steps</h2>
+                        <p className="text-sm sm:text-base lg:text-lg text-text-secondary leading-relaxed">
+                            Get started in minutes, not hours
+                        </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+                        {[
+                            {
+                                step: '1',
+                                icon: '📄',
+                                title: 'Upload Your RFP',
+                                desc: 'Drag and drop your RFP document (Excel, PDF, or Word). Our parser extracts all questions automatically.'
+                            },
+                            {
+                                step: '2',
+                                icon: '🤖',
+                                title: 'Generate AI Responses',
+                                desc: 'Click "Generate All" and watch AI create tailored responses using your knowledge base and company context.'
+                            },
+                            {
+                                step: '3',
+                                icon: '📤',
+                                title: 'Review & Export',
+                                desc: 'Edit, approve, and export your completed proposal to PDF or Word. Ready to submit!'
+                            },
+                        ].map((item, i) => (
+                            <div key={i} className="relative bg-bg-secondary border border-border-color rounded-xl p-8 lg:p-10 text-center hover:border-accent-purple hover:shadow-xl hover:shadow-accent-purple/10 transition-all">
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-gradient-to-r from-accent-purple to-accent-pink text-white font-bold text-sm flex items-center justify-center">
+                                    {item.step}
+                                </div>
+                                <div className="text-4xl mb-4 mt-2">{item.icon}</div>
+                                <h3 className="text-lg sm:text-xl font-bold mb-3">{item.title}</h3>
+                                <p className="text-sm sm:text-base text-text-secondary leading-relaxed">{item.desc}</p>
                             </div>
-                            <div className="text-base text-text-secondary font-semibold">{stat.label}</div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </section>
 
@@ -364,8 +387,20 @@ export default function LandingPage() {
             {/* SECURITY SECTION */}
             <section id="security" className="py-[120px] px-10 bg-bg-tertiary">
                 <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-20 items-center">
-                    <div className="w-full h-[400px] bg-bg-secondary border-2 border-dashed border-border-color rounded-xl flex items-center justify-center text-text-secondary text-lg">
-                        [Dashboard Screenshot Mockup]
+                    <div className="w-full h-[400px] bg-gradient-to-br from-bg-secondary to-bg-tertiary border border-border-color rounded-xl flex items-center justify-center relative overflow-hidden">
+                        {/* Background pattern */}
+                        <div className="absolute inset-0 opacity-5">
+                            <div className="absolute top-10 left-10 text-8xl">🔐</div>
+                            <div className="absolute bottom-10 right-10 text-8xl">🛡️</div>
+                            <div className="absolute top-1/2 left-1/4 text-6xl">✓</div>
+                            <div className="absolute top-1/3 right-1/4 text-6xl">🔒</div>
+                        </div>
+                        {/* Main content */}
+                        <div className="relative text-center z-10">
+                            <div className="text-[120px] mb-4">🛡️</div>
+                            <p className="text-xl font-bold text-text-primary mb-2">Enterprise Security</p>
+                            <p className="text-sm text-text-secondary">Your data is protected 24/7</p>
+                        </div>
                     </div>
 
                     <div>
@@ -479,7 +514,7 @@ export default function LandingPage() {
                 <div className="max-w-4xl mx-auto">
                     <h2 className="text-5xl font-bold mb-5">Ready to Win More Proposals?</h2>
                     <p className="text-lg text-text-secondary mb-12 max-w-[600px] mx-auto">
-                        Join hundreds of teams using AI to close deals faster
+                        Start your 30-day free trial and see the difference AI makes
                     </p>
                     <div className="flex items-center justify-center gap-5">
                         <Link to="/signup">

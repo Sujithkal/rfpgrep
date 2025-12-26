@@ -13,7 +13,7 @@ export default function ThemeToggle({ className = '' }) {
         >
             {/* Toggle circle */}
             <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-300 flex items-center justify-center ${isDark ? 'translate-x-7' : 'translate-x-0'
+                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-300 flex items-center justify-center ${isDark ? 'translate-x-6' : 'translate-x-0'
                     }`}
             >
                 {isDark ? (

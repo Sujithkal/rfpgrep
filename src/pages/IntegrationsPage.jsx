@@ -18,6 +18,8 @@ export default function IntegrationsPage() {
     // Integrations
     const [slackWebhook, setSlackWebhook] = useState(userData?.integrations?.slack?.webhookUrl || '');
     const [teamsWebhook, setTeamsWebhook] = useState(userData?.integrations?.teams?.webhookUrl || '');
+    const [customWebhookUrl, setCustomWebhookUrl] = useState(userData?.integrations?.customWebhook?.url || '');
+    const [customWebhookSecret, setCustomWebhookSecret] = useState(userData?.integrations?.customWebhook?.secret || '');
     const [saving, setSaving] = useState(false);
 
     // Load API keys
@@ -26,6 +28,22 @@ export default function IntegrationsPage() {
             loadApiKeys();
         }
     }, [user]);
+
+    // Sync webhook URLs from userData when it loads/changes
+    useEffect(() => {
+        if (userData?.integrations?.slack?.webhookUrl) {
+            setSlackWebhook(userData.integrations.slack.webhookUrl);
+        }
+        if (userData?.integrations?.teams?.webhookUrl) {
+            setTeamsWebhook(userData.integrations.teams.webhookUrl);
+        }
+        if (userData?.integrations?.customWebhook?.url) {
+            setCustomWebhookUrl(userData.integrations.customWebhook.url);
+        }
+        if (userData?.integrations?.customWebhook?.secret) {
+            setCustomWebhookSecret(userData.integrations.customWebhook.secret);
+        }
+    }, [userData]);
 
     const loadApiKeys = async () => {
         const result = await getApiKeys(user.uid);
@@ -93,7 +111,10 @@ export default function IntegrationsPage() {
 
     // Save Teams webhook
     const handleSaveTeams = async () => {
-        if (!teamsWebhook.includes('webhook.office.com')) {
+        // Accept both outlook.office.com and webhook.office.com formats
+        const isValidTeamsUrl = teamsWebhook.includes('outlook.office.com/webhook') ||
+            teamsWebhook.includes('webhook.office.com');
+        if (!isValidTeamsUrl) {
             toast.error('Invalid Teams webhook URL');
             return;
         }
@@ -108,13 +129,121 @@ export default function IntegrationsPage() {
         setSaving(false);
     };
 
+    // Test Slack notification
+    const handleTestSlack = async () => {
+        try {
+            setSaving(true);
+            const { httpsCallable } = await import('firebase/functions');
+            const { functions } = await import('../services/firebase');
+            const sendWebhookNotification = httpsCallable(functions, 'sendWebhookNotification');
+            const result = await sendWebhookNotification({
+                event: 'test_notification',
+                eventData: { rfpName: 'Test Project' }
+            });
+            if (result.data?.results?.slack) {
+                toast.success('🎉 Test notification sent to Slack!');
+            } else {
+                toast.error('Slack notification failed - check webhook URL');
+            }
+        } catch (error) {
+            console.error('Test notification error:', error);
+            toast.error('Failed to send test notification');
+        }
+        setSaving(false);
+    };
+
+    // Test Teams notification
+    const handleTestTeams = async () => {
+        try {
+            setSaving(true);
+            const { httpsCallable } = await import('firebase/functions');
+            const { functions } = await import('../services/firebase');
+            const sendWebhookNotification = httpsCallable(functions, 'sendWebhookNotification');
+            const result = await sendWebhookNotification({
+                event: 'test_notification',
+                eventData: { rfpName: 'Test Project' }
+            });
+            if (result.data?.results?.teams) {
+                toast.success('🎉 Test notification sent to Teams!');
+            } else {
+                toast.error('Teams notification failed - check webhook URL');
+            }
+        } catch (error) {
+            console.error('Test notification error:', error);
+            toast.error('Failed to send test notification');
+        }
+        setSaving(false);
+    };
+
+    // Save custom webhook
+    const handleSaveCustomWebhook = async () => {
+        if (!customWebhookUrl) {
+            toast.error('Please enter a webhook URL');
+            return;
+        }
+
+        try {
+            new URL(customWebhookUrl); // Validate URL format
+        } catch {
+            toast.error('Invalid webhook URL format');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const { doc, updateDoc } = await import('firebase/firestore');
+            const { db } = await import('../services/firebase');
+            await updateDoc(doc(db, 'users', user.uid), {
+                'integrations.customWebhook': {
+                    url: customWebhookUrl,
+                    secret: customWebhookSecret || null,
+                    enabled: true,
+                    createdAt: new Date().toISOString()
+                }
+            });
+            toast.success('Custom webhook saved!');
+        } catch (error) {
+            console.error('Error saving custom webhook:', error);
+            toast.error('Failed to save webhook');
+        }
+        setSaving(false);
+    };
+
+    // Test custom webhook
+    const handleTestCustomWebhook = async () => {
+        if (!customWebhookUrl) {
+            toast.error('Please save a webhook URL first');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            const { httpsCallable } = await import('firebase/functions');
+            const { functions } = await import('../services/firebase');
+            const sendWebhookNotification = httpsCallable(functions, 'sendWebhookNotification');
+            const result = await sendWebhookNotification({
+                event: 'test_notification',
+                eventData: { rfpName: 'Test Project' }
+            });
+            if (result.data?.results?.custom) {
+                toast.success('🎉 Test notification sent to your webhook!');
+            } else {
+                toast.error('Custom webhook failed - check your endpoint');
+            }
+        } catch (error) {
+            console.error('Test webhook error:', error);
+            toast.error('Failed to send test notification');
+        }
+        setSaving(false);
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
             <header className="bg-white border-b border-gray-200">
                 <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link to="/settings" className="text-gray-500 hover:text-gray-700">
+                        <Link to="/dashboard" className="text-gray-500 hover:text-gray-700">
                             ← Back to Dashboard
                         </Link>
                         <h1 className="text-xl font-bold text-gray-900">
@@ -180,7 +309,7 @@ export default function IntegrationsPage() {
                                     value={newKeyName}
                                     onChange={(e) => setNewKeyName(e.target.value)}
                                     placeholder="Key name (e.g., Production, Testing)"
-                                    className="flex-1 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    className="flex-1 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
                                 />
                                 <button
                                     onClick={handleGenerateKey}
@@ -209,7 +338,7 @@ export default function IntegrationsPage() {
                                             <div>
                                                 <p className="font-medium text-gray-900">{key.name}</p>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <code className="text-sm bg-gray-200 px-2 py-0.5 rounded font-mono">
+                                                    <code className="text-sm bg-gray-100 text-gray-800 px-2 py-0.5 rounded font-mono border border-gray-300">
                                                         {key.key.substring(0, 12)}...{key.key.substring(key.key.length - 4)}
                                                     </code>
                                                     <button
@@ -269,7 +398,7 @@ export default function IntegrationsPage() {
                                     value={slackWebhook}
                                     onChange={(e) => setSlackWebhook(e.target.value)}
                                     placeholder="https://hooks.slack.com/services/..."
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm text-gray-900"
                                 />
                                 <p className="text-xs text-gray-500 mt-2">
                                     <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
@@ -285,6 +414,16 @@ export default function IntegrationsPage() {
                             >
                                 {saving ? 'Saving...' : 'Save Slack Integration'}
                             </button>
+
+                            {userData?.integrations?.slack?.webhookUrl && (
+                                <button
+                                    onClick={handleTestSlack}
+                                    disabled={saving}
+                                    className="px-6 py-2.5 ml-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                                >
+                                    🧪 Test Notification
+                                </button>
+                            )}
 
                             <div className="pt-4 border-t border-gray-100">
                                 <h4 className="font-medium text-gray-900 mb-2">Notifications you'll receive:</h4>
@@ -322,7 +461,7 @@ export default function IntegrationsPage() {
                                     value={teamsWebhook}
                                     onChange={(e) => setTeamsWebhook(e.target.value)}
                                     placeholder="https://outlook.office.com/webhook/..."
-                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                                    className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm text-gray-900"
                                 />
                                 <p className="text-xs text-gray-500 mt-2">
                                     <a href="https://docs.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
@@ -338,6 +477,16 @@ export default function IntegrationsPage() {
                             >
                                 {saving ? 'Saving...' : 'Save Teams Integration'}
                             </button>
+
+                            {userData?.integrations?.teams?.webhookUrl && (
+                                <button
+                                    onClick={handleTestTeams}
+                                    disabled={saving}
+                                    className="px-6 py-2.5 ml-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                                >
+                                    🧪 Test Notification
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -384,8 +533,10 @@ export default function IntegrationsPage() {
                                     </label>
                                     <input
                                         type="url"
+                                        value={customWebhookUrl}
+                                        onChange={(e) => setCustomWebhookUrl(e.target.value)}
                                         placeholder="https://your-server.com/webhook"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm text-gray-900"
                                     />
                                 </div>
                                 <div>
@@ -394,13 +545,30 @@ export default function IntegrationsPage() {
                                     </label>
                                     <input
                                         type="password"
+                                        value={customWebhookSecret}
+                                        onChange={(e) => setCustomWebhookSecret(e.target.value)}
                                         placeholder="Your secret token for signature verification"
-                                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900"
                                     />
                                 </div>
-                                <button className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors">
-                                    Save Webhook Configuration
-                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={handleSaveCustomWebhook}
+                                        disabled={saving || !customWebhookUrl}
+                                        className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                                    >
+                                        {saving ? 'Saving...' : 'Save Webhook Configuration'}
+                                    </button>
+                                    {userData?.integrations?.customWebhook?.url && (
+                                        <button
+                                            onClick={handleTestCustomWebhook}
+                                            disabled={saving}
+                                            className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:opacity-50"
+                                        >
+                                            🧪 Test Webhook
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -488,16 +656,6 @@ export default function IntegrationsPage() {
                             </div>
                         </div>
 
-                        {/* Enterprise Note */}
-                        <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl p-6 border border-indigo-200 dark:border-indigo-700">
-                            <h4 className="font-semibold text-gray-900 dark:text-white mb-2">🔗 Need Direct API Integration?</h4>
-                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">
-                                Enterprise customers can get custom API integrations with automatic sync to your CRM/ERP.
-                            </p>
-                            <Link to="/pricing" className="text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-700 dark:hover:text-indigo-300">
-                                View Enterprise Plan →
-                            </Link>
-                        </div>
                     </div>
                 )}
             </main>

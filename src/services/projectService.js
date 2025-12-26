@@ -1,7 +1,31 @@
-import { db as firestore, storage } from './firebase';
+import { db as firestore, storage, functions } from './firebase';
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, orderBy, Timestamp, onSnapshot } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
 import { v4 as uuidv4 } from 'uuid';
+import {
+    createNotification,
+    NOTIFICATION_TYPES,
+    notifyProjectCreated,
+    notifyProjectApproved,
+    notifyProjectExported
+} from './notificationService';
+
+/**
+ * Send notifications to configured webhooks (Slack/Teams) via Cloud Function
+ */
+async function sendIntegrationNotifications(userId, event, eventData) {
+    try {
+        // Call Cloud Function to send notifications (avoids CORS issues)
+        const sendWebhookNotification = httpsCallable(functions, 'sendWebhookNotification');
+        const result = await sendWebhookNotification({ event, eventData });
+        console.log('Integration notification sent:', result.data);
+    } catch (error) {
+        console.error('Error sending integration notification:', error);
+        // Don't throw - notifications shouldn't block main operations
+    }
+}
+
 
 /**
  * Get all projects for a user (simplified - no teams for MVP)
@@ -57,14 +81,35 @@ export async function createProject(userId, projectData) {
         // Generate project ID
         const projectId = uuidv4();
 
+        console.log('[createProject] Starting project creation:', {
+            projectId,
+            fileName: projectData.file.name,
+            fileSize: projectData.file.size,
+            fileType: projectData.file.type,
+            userId
+        });
+
         // 1. Upload RFP file to Storage
         const fileExt = projectData.file.name.split('.').pop();
         const fileName = `${projectId}_${Date.now()}.${fileExt}`;
         const filePath = `users/${userId}/projects/${projectId}/${fileName}`;
 
+        console.log('[createProject] Uploading file to:', filePath);
+
         const storageRef = ref(storage, filePath);
-        await uploadBytes(storageRef, projectData.file);
+        const metadata = {
+            contentType: projectData.file.type || 'application/octet-stream',
+            customMetadata: {
+                originalName: projectData.file.name,
+                uploadedBy: userId
+            }
+        };
+
+        await uploadBytes(storageRef, projectData.file, metadata);
+        console.log('[createProject] File uploaded successfully');
+
         const fileURL = await getDownloadURL(storageRef);
+        console.log('[createProject] Got download URL');
 
         // 2. Create project document
         const project = {
@@ -75,13 +120,15 @@ export async function createProject(userId, projectData) {
             status: 'processing', // processing → ready
             priority: projectData.priority || 'medium',
             dueDate: projectData.dueDate ? Timestamp.fromDate(new Date(projectData.dueDate)) : null,
+            visibility: projectData.visibility || 'personal', // personal or team
 
             // Owner
             owner: userId,
+            ownerId: userId, // For easy access checks
 
             // RFP Documents
             rfpDocuments: [{
-                id: fileName,
+                id: filePath.split('/').pop(),
                 name: projectData.file.name,
                 url: fileURL,
                 storagePath: filePath,
@@ -107,6 +154,21 @@ export async function createProject(userId, projectData) {
         };
 
         await setDoc(doc(firestore, `users/${userId}/projects/${projectId}`), project);
+
+        // Send notification to Slack/Teams
+        sendIntegrationNotifications(userId, 'rfp_uploaded', {
+            rfpName: project.name,
+            rfpId: projectId,
+            totalQuestions: 0  // Will be updated after parsing
+        });
+
+        // Send in-app notification for project creation
+        notifyProjectCreated(userId, {
+            projectId: projectId,
+            projectName: project.name,
+            totalQuestions: project.stats.totalQuestions,
+            createdBy: 'You'
+        }).catch(err => console.error('Project creation notification error:', err));
 
         // Note: parseRFPFile Cloud Function will auto-trigger and update the project
 
@@ -139,6 +201,21 @@ export function subscribeToProject(userId, projectId, callback) {
 export async function updateProject(userId, projectId, updates) {
     try {
         const projectRef = doc(firestore, `users/${userId}/projects/${projectId}`);
+
+        // Check if status is changing to 'submitted' or 'approved' (completed)
+        if (updates.status === 'submitted' || updates.status === 'approved') {
+            const currentProject = await getDoc(projectRef);
+            if (currentProject.exists()) {
+                const projectData = currentProject.data();
+                // Send notification for completed RFP
+                sendIntegrationNotifications(userId, 'rfp_completed', {
+                    rfpName: projectData.name,
+                    rfpId: projectId,
+                    totalQuestions: projectData.stats?.totalQuestions || 0
+                });
+            }
+        }
+
         await setDoc(projectRef, {
             ...updates,
             updatedAt: Timestamp.now()
@@ -172,7 +249,7 @@ export async function updateProjectOutcome(userId, projectId, outcome) {
  * Update a specific question's response in a project
  * Now includes VERSION HISTORY tracking
  */
-export async function updateProjectQuestion(userId, projectId, sectionIndex, questionIndex, questionData, userName = 'User') {
+export async function updateProjectQuestion(userId, projectId, sectionIndex, questionIndex, questionData) {
     try {
         // Get current project
         const project = await getProject(userId, projectId);
@@ -187,31 +264,27 @@ export async function updateProjectQuestion(userId, projectId, sectionIndex, que
 
         const currentQuestion = project.sections[sectionIndex].questions[questionIndex];
 
-        // VERSION HISTORY: Save previous version before updating
-        const versions = currentQuestion.versions || [];
-        if (currentQuestion.response) {
-            // Only save version if there was previous content
-            versions.push({
-                id: `v_${Date.now()}`,
-                content: currentQuestion.response,
-                editedBy: { uid: userId, name: userName },
-                editedAt: new Date().toISOString(),
-                changeType: currentQuestion.status || 'draft',
-                trustScore: currentQuestion.trustScore || null
-            });
-            // Keep only last 20 versions
-            if (versions.length > 20) {
-                versions.shift();
-            }
-        }
+        // VERSION HISTORY: Use versions from questionData if provided (already managed by EditorPage)
+        // Otherwise, preserve existing versions
+        const versions = questionData.versions || currentQuestion.versions || [];
+
+        // Get the user info from questionData (EditorPage provides this)
+        const userName = questionData.lastEditedBy?.name ||
+            questionData.generatedBy?.name ||
+            'User';
+
+        console.log('[updateProjectQuestion] Saving with name:', userName, {
+            lastEditedBy: questionData.lastEditedBy,
+            generatedBy: questionData.generatedBy
+        });
 
         // Update the question with new data and versions
         project.sections[sectionIndex].questions[questionIndex] = {
             ...currentQuestion,
             ...questionData,
             versions: versions,
-            lastEditedAt: new Date().toISOString(),
-            lastEditedBy: { uid: userId, name: userName }
+            lastEditedAt: questionData.lastEditedAt || new Date().toISOString()
+            // Don't override lastEditedBy - it comes from questionData
         };
 
         // Recalculate stats

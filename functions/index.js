@@ -1,4 +1,4 @@
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
@@ -184,7 +184,7 @@ exports.parseRFPFile = onObjectFinalized(async (event) => {
             updateData.stats = stats;
         }
 
-        await docRef.update(updateData);
+        await docRef.set(updateData, { merge: true });
 
         console.log(`✅ Successfully parsed ${extractedData.totalQuestions} questions`);
 
@@ -195,11 +195,11 @@ exports.parseRFPFile = onObjectFinalized(async (event) => {
         // Update document with error status
         const docRef = admin.firestore().doc(`${collection}/${docId}`);
 
-        await docRef.update({
+        await docRef.set({
             status: 'error',
             errorMessage: error.message,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        });
+        }, { merge: true });
 
         return { success: false, error: error.message };
     }
@@ -887,4 +887,662 @@ exports.sendTeamInviteEmail = onCall(async (request) => {
         console.error('Email error:', error);
         throw new HttpsError('internal', 'Failed to send email.');
     }
+});
+
+// ===========================================
+// WEBHOOK NOTIFICATIONS (Slack/Teams)
+// ===========================================
+
+/**
+ * Cloud Function: Send Webhook Notification
+ * Sends notifications to Slack/Teams webhooks (avoids CORS issues)
+ */
+exports.sendWebhookNotification = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const userId = request.auth.uid;
+    const { event, eventData } = request.data;
+
+    if (!event) {
+        throw new HttpsError('invalid-argument', 'Event type is required.');
+    }
+
+    try {
+        // Get user's integration settings
+        const userDoc = await admin.firestore().doc(`users/${userId}`).get();
+        if (!userDoc.exists) {
+            return { success: false, message: 'User not found' };
+        }
+
+        const userData = userDoc.data();
+        const integrations = userData.integrations || {};
+        const results = { slack: false, teams: false, custom: false };
+
+        // Send Slack notification if configured
+        if (integrations.slack?.webhookUrl && integrations.slack?.enabled) {
+            try {
+                const message = buildSlackMessage(event, eventData);
+                const response = await fetch(integrations.slack.webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(message)
+                });
+
+                if (response.ok) {
+                    results.slack = true;
+                    console.log('Slack notification sent for event:', event);
+                } else {
+                    console.error('Slack webhook failed:', await response.text());
+                }
+            } catch (error) {
+                console.error('Slack notification error:', error);
+            }
+        }
+
+        // Send Teams notification if configured
+        if (integrations.teams?.webhookUrl && integrations.teams?.enabled) {
+            try {
+                const teamsMessage = {
+                    "@type": "MessageCard",
+                    "@context": "http://schema.org/extensions",
+                    "themeColor": "6366f1",
+                    "summary": `RFPgrep: ${event.replace('_', ' ')}`,
+                    "sections": [{
+                        "activityTitle": eventData.rfpName || eventData.projectName,
+                        "facts": [
+                            { "name": "Event", "value": event.replace('_', ' ').toUpperCase() },
+                            { "name": "Questions", "value": String(eventData.totalQuestions || 0) }
+                        ],
+                        "markdown": true
+                    }]
+                };
+
+                const response = await fetch(integrations.teams.webhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(teamsMessage)
+                });
+
+                if (response.ok) {
+                    results.teams = true;
+                    console.log('Teams notification sent for event:', event);
+                } else {
+                    console.error('Teams webhook failed:', await response.text());
+                }
+            } catch (error) {
+                console.error('Teams notification error:', error);
+            }
+        }
+
+        // Send Custom webhook notification if configured
+        if (integrations.customWebhook?.url && integrations.customWebhook?.enabled) {
+            try {
+                const customPayload = {
+                    event: event,
+                    timestamp: new Date().toISOString(),
+                    data: eventData
+                };
+
+                const headers = { 'Content-Type': 'application/json' };
+
+                // Add HMAC signature if secret is configured
+                if (integrations.customWebhook.secret) {
+                    const crypto = require('crypto');
+                    const signature = crypto
+                        .createHmac('sha256', integrations.customWebhook.secret)
+                        .update(JSON.stringify(customPayload))
+                        .digest('hex');
+                    headers['X-RFPgrep-Signature'] = `sha256=${signature}`;
+                }
+
+                const response = await fetch(integrations.customWebhook.url, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(customPayload)
+                });
+
+                if (response.ok) {
+                    results.custom = true;
+                    console.log('Custom webhook notification sent for event:', event);
+                } else {
+                    console.error('Custom webhook failed:', await response.text());
+                }
+            } catch (error) {
+                console.error('Custom webhook notification error:', error);
+            }
+        }
+
+        return { success: true, results };
+    } catch (error) {
+        console.error('Webhook notification error:', error);
+        throw new HttpsError('internal', 'Failed to send notification');
+    }
+});
+
+// Helper function to build Slack message
+function buildSlackMessage(event, data) {
+    const messages = {
+        rfp_uploaded: {
+            text: `📄 New RFP Uploaded: ${data.rfpName}`,
+            blocks: [
+                {
+                    type: 'header',
+                    text: { type: 'plain_text', text: '📄 New RFP Uploaded', emoji: true }
+                },
+                {
+                    type: 'section',
+                    fields: [
+                        { type: 'mrkdwn', text: `*RFP Name:*\n${data.rfpName}` },
+                        { type: 'mrkdwn', text: `*Questions:*\n${data.totalQuestions || 'Processing...'}` }
+                    ]
+                }
+            ]
+        },
+        rfp_completed: {
+            text: `✅ RFP Completed: ${data.rfpName}`,
+            blocks: [
+                {
+                    type: 'header',
+                    text: { type: 'plain_text', text: '✅ RFP Completed!', emoji: true }
+                },
+                {
+                    type: 'section',
+                    text: { type: 'mrkdwn', text: `*${data.rfpName}* has been completed with ${data.totalQuestions} responses.` }
+                }
+            ]
+        },
+        test_notification: {
+            text: `🧪 Test Notification from RFPgrep`,
+            blocks: [
+                {
+                    type: 'header',
+                    text: { type: 'plain_text', text: '🧪 Test Notification', emoji: true }
+                },
+                {
+                    type: 'section',
+                    text: { type: 'mrkdwn', text: `Your Slack integration is working! You will receive notifications when RFPs are uploaded or completed.` }
+                }
+            ]
+        }
+    };
+
+    return messages[event] || { text: `RFPgrep: ${event}` };
+}
+
+// ===========================================
+// REST API ENDPOINT
+// ===========================================
+
+
+const { app: apiApp, setGeminiApiKey } = require('./api');
+
+/**
+ * REST API Cloud Function
+ * Exposes all /api/v1/* endpoints
+ * Uses API key authentication (not Firebase Auth)
+ */
+exports.api = onRequest({
+    cors: true,
+    maxInstances: 100,
+    timeoutSeconds: 60,
+    memory: '512MiB'
+}, (req, res) => {
+    // Set the Gemini API key lazily at request time
+    setGeminiApiKey(geminiApiKey.value());
+    return apiApp(req, res);
+});
+
+/**
+ * Cloud Function: Get Signed Upload URL
+ * Generates a signed URL for direct file upload to bypass CORS
+ */
+exports.getSignedUploadUrl = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const userId = request.auth.uid;
+    const { fileName, contentType, projectId } = request.data;
+
+    if (!fileName || !projectId) {
+        throw new HttpsError('invalid-argument', 'fileName and projectId are required.');
+    }
+
+    try {
+        const bucket = admin.storage().bucket();
+        const filePath = `users/${userId}/projects/${projectId}/${projectId}_${Date.now()}_${fileName}`;
+        const file = bucket.file(filePath);
+
+        // Generate a signed URL for upload (valid for 15 minutes)
+        const [signedUrl] = await file.getSignedUrl({
+            version: 'v4',
+            action: 'write',
+            expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+            contentType: contentType || 'application/octet-stream',
+        });
+
+        console.log(`Generated signed URL for user ${userId}, project ${projectId}`);
+
+        return {
+            success: true,
+            signedUrl: signedUrl,
+            filePath: filePath
+        };
+    } catch (error) {
+        console.error('Error generating signed URL:', error);
+        throw new HttpsError('internal', 'Failed to generate upload URL: ' + error.message);
+    }
+});
+
+/**
+ * Cloud Function: Confirm Upload Complete
+ * Called after file upload to get the download URL and trigger processing
+ */
+exports.confirmUpload = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const userId = request.auth.uid;
+    const { filePath } = request.data;
+
+    if (!filePath) {
+        throw new HttpsError('invalid-argument', 'filePath is required.');
+    }
+
+    // Verify the path belongs to this user
+    if (!filePath.startsWith(`users/${userId}/`)) {
+        throw new HttpsError('permission-denied', 'Access denied to this file path.');
+    }
+
+    try {
+        const bucket = admin.storage().bucket();
+        const file = bucket.file(filePath);
+
+        // Check if file exists
+        const [exists] = await file.exists();
+        if (!exists) {
+            throw new HttpsError('not-found', 'File not found. Upload may have failed.');
+        }
+
+        // Get download URL
+        const [metadata] = await file.getMetadata();
+        const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(filePath)}?alt=media`;
+
+        console.log(`Upload confirmed for ${filePath}`);
+
+        return {
+            success: true,
+            downloadUrl: downloadUrl,
+            filePath: filePath,
+            size: metadata.size,
+            contentType: metadata.contentType
+        };
+    } catch (error) {
+        console.error('Error confirming upload:', error);
+        throw new HttpsError('internal', 'Failed to confirm upload: ' + error.message);
+    }
+});
+
+// =====================================================
+// REST API ENDPOINTS WITH API KEY AUTHENTICATION
+// =====================================================
+
+/**
+ * Validate API Key and return user info
+ * @param {string} apiKey - The API key from request header
+ * @returns {object} { valid: boolean, userId: string|null, error: string|null }
+ */
+async function validateApiKeyAuth(apiKey) {
+    if (!apiKey || !apiKey.startsWith('rfp_')) {
+        return { valid: false, userId: null, error: 'Invalid API key format' };
+    }
+
+    try {
+        // Search for the API key in all users
+        const usersRef = admin.firestore().collection('users');
+        const snapshot = await usersRef.get();
+
+        for (const doc of snapshot.docs) {
+            const userData = doc.data();
+            const apiKeys = userData.apiKeys || [];
+
+            const matchingKey = apiKeys.find(k => k.key === apiKey && k.isActive !== false);
+            if (matchingKey) {
+                // Update last used timestamp
+                const updatedKeys = apiKeys.map(k =>
+                    k.key === apiKey ? { ...k, lastUsed: new Date().toISOString(), callCount: (k.callCount || 0) + 1 } : k
+                );
+                await doc.ref.update({ apiKeys: updatedKeys });
+
+                return {
+                    valid: true,
+                    userId: doc.id,
+                    userData: userData,
+                    keyName: matchingKey.name
+                };
+            }
+        }
+
+        return { valid: false, userId: null, error: 'API key not found' };
+    } catch (error) {
+        console.error('API key validation error:', error);
+        return { valid: false, userId: null, error: 'Validation failed' };
+    }
+}
+
+/**
+ * CORS headers for REST API
+ */
+function setCorsHeaders(res) {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+    res.set('Access-Control-Max-Age', '3600');
+}
+
+/**
+ * REST API: Get Projects List
+ * GET /api/projects
+ * Header: X-API-Key: rfp_xxx
+ */
+exports.apiGetProjects = onRequest({
+    cors: true,
+    region: 'us-central1'
+}, async (req, res) => {
+    setCorsHeaders(res);
+
+    if (req.method === 'OPTIONS') {
+        return res.status(204).send('');
+    }
+
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    // Get API key from header
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    const auth = await validateApiKeyAuth(apiKey);
+
+    if (!auth.valid) {
+        return res.status(401).json({
+            error: 'Unauthorized',
+            message: auth.error,
+            hint: 'Include your API key in the X-API-Key header'
+        });
+    }
+
+    try {
+        const projectsRef = admin.firestore().collection(`users/${auth.userId}/projects`);
+        const snapshot = await projectsRef.orderBy('createdAt', 'desc').limit(50).get();
+
+        const projects = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            projects.push({
+                id: doc.id,
+                name: data.name,
+                client: data.client,
+                status: data.status,
+                deadline: data.deadline,
+                stats: data.stats,
+                createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+            });
+        });
+
+        return res.status(200).json({
+            success: true,
+            count: projects.length,
+            projects: projects
+        });
+    } catch (error) {
+        console.error('API error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * REST API: Get Single Project
+ * GET /api/project?id=xxx
+ * Header: X-API-Key: rfp_xxx
+ */
+exports.apiGetProject = onRequest({
+    cors: true,
+    region: 'us-central1'
+}, async (req, res) => {
+    setCorsHeaders(res);
+
+    if (req.method === 'OPTIONS') {
+        return res.status(204).send('');
+    }
+
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    const auth = await validateApiKeyAuth(apiKey);
+
+    if (!auth.valid) {
+        return res.status(401).json({ error: 'Unauthorized', message: auth.error });
+    }
+
+    const projectId = req.query.id;
+    if (!projectId) {
+        return res.status(400).json({ error: 'Project ID is required', hint: 'Add ?id=YOUR_PROJECT_ID to the URL' });
+    }
+
+    try {
+        const projectDoc = await admin.firestore().doc(`users/${auth.userId}/projects/${projectId}`).get();
+
+        if (!projectDoc.exists) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+
+        const data = projectDoc.data();
+        return res.status(200).json({
+            success: true,
+            project: {
+                id: projectDoc.id,
+                name: data.name,
+                client: data.client,
+                status: data.status,
+                deadline: data.deadline,
+                stats: data.stats,
+                sections: data.sections?.map(s => ({
+                    title: s.title || s.name,
+                    questionsCount: s.questions?.length || 0,
+                    questions: s.questions?.map(q => ({
+                        text: q.text,
+                        response: q.response,
+                        status: q.status,
+                        assignedTo: q.assignedTo
+                    }))
+                })),
+                createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+                updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt
+            }
+        });
+    } catch (error) {
+        console.error('API error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * REST API: Generate AI Response
+ * POST /api/ai/generate
+ * Header: X-API-Key: rfp_xxx
+ * Body: { question: "...", tone: "professional", knowledgeBase: [...] }
+ */
+exports.apiGenerateAI = onRequest({
+    cors: true,
+    region: 'us-central1'
+}, async (req, res) => {
+    setCorsHeaders(res);
+
+    if (req.method === 'OPTIONS') {
+        return res.status(204).send('');
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+    }
+
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    const auth = await validateApiKeyAuth(apiKey);
+
+    if (!auth.valid) {
+        return res.status(401).json({ error: 'Unauthorized', message: auth.error });
+    }
+
+    const { question, tone = 'professional', knowledgeBase = [] } = req.body;
+
+    if (!question) {
+        return res.status(400).json({ error: 'Question is required in request body' });
+    }
+
+    try {
+        // Rate limit check
+        const rateLimit = await checkRateLimit(auth.userId, 'apiGenerateAI');
+        if (!rateLimit.allowed) {
+            return res.status(429).json({
+                error: 'Rate limit exceeded',
+                retryAfter: Math.ceil(rateLimit.resetIn / 1000),
+                remaining: rateLimit.remaining
+            });
+        }
+
+        // Prompt injection check
+        const injectionCheck = checkPromptInjection(question);
+        if (!injectionCheck.safe) {
+            return res.status(400).json({ error: 'Invalid input detected' });
+        }
+
+        const sanitizedQuestion = sanitizeForPrompt(question, 5000);
+        const prompt = buildPrompt(sanitizedQuestion, knowledgeBase, tone, 'generate');
+
+        const genAI = getGenAI();
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const result = await model.generateContent(prompt);
+        const generatedText = result.response.text();
+
+        // Update usage
+        await admin.firestore().collection('users').doc(auth.userId).update({
+            'usage.aiCallsMade': admin.firestore.FieldValue.increment(1)
+        });
+
+        return res.status(200).json({
+            success: true,
+            response: generatedText,
+            model: 'gemini-2.0-flash',
+            rateLimitRemaining: rateLimit.remaining
+        });
+    } catch (error) {
+        console.error('AI API error:', error);
+        return res.status(500).json({ error: 'Failed to generate response' });
+    }
+});
+
+/**
+ * REST API: Update Question Response
+ * POST /api/project/update-response
+ * Header: X-API-Key: rfp_xxx
+ * Body: { projectId, sectionIndex, questionIndex, response }
+ */
+exports.apiUpdateResponse = onRequest({
+    cors: true,
+    region: 'us-central1'
+}, async (req, res) => {
+    setCorsHeaders(res);
+
+    if (req.method === 'OPTIONS') {
+        return res.status(204).send('');
+    }
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+    }
+
+    const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+    const auth = await validateApiKeyAuth(apiKey);
+
+    if (!auth.valid) {
+        return res.status(401).json({ error: 'Unauthorized', message: auth.error });
+    }
+
+    const { projectId, sectionIndex, questionIndex, response } = req.body;
+
+    if (!projectId || sectionIndex === undefined || questionIndex === undefined) {
+        return res.status(400).json({
+            error: 'Missing required fields',
+            required: ['projectId', 'sectionIndex', 'questionIndex', 'response']
+        });
+    }
+
+    try {
+        const projectRef = admin.firestore().doc(`users/${auth.userId}/projects/${projectId}`);
+        const projectDoc = await projectRef.get();
+
+        if (!projectDoc.exists) {
+            return res.status(404).json({ error: 'Project not found' });
+        }
+
+        const data = projectDoc.data();
+        const sections = [...(data.sections || [])];
+
+        if (!sections[sectionIndex]?.questions?.[questionIndex]) {
+            return res.status(400).json({ error: 'Question not found at specified index' });
+        }
+
+        sections[sectionIndex].questions[questionIndex].response = response;
+        sections[sectionIndex].questions[questionIndex].updatedAt = new Date().toISOString();
+        sections[sectionIndex].questions[questionIndex].updatedBy = 'api';
+
+        await projectRef.update({
+            sections,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Response updated successfully'
+        });
+    } catch (error) {
+        console.error('API error:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * REST API: API Info/Health Check
+ * GET /api/info
+ */
+exports.apiInfo = onRequest({
+    cors: true,
+    region: 'us-central1'
+}, async (req, res) => {
+    setCorsHeaders(res);
+
+    if (req.method === 'OPTIONS') {
+        return res.status(204).send('');
+    }
+
+    return res.status(200).json({
+        name: 'RFPgrep API',
+        version: '1.0.0',
+        status: 'operational',
+        endpoints: {
+            '/apiInfo': 'GET - API health check',
+            '/apiGetProjects': 'GET - List all projects',
+            '/apiGetProject?id=xxx': 'GET - Get single project details',
+            '/apiGenerateAI': 'POST - Generate AI response',
+            '/apiUpdateResponse': 'POST - Update question response'
+        },
+        authentication: 'Include your API key in the X-API-Key header',
+        documentation: 'https://rfpgrep.com/api-docs'
+    });
 });
