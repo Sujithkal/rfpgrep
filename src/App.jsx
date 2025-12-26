@@ -24,6 +24,7 @@ import FeaturesPage from './pages/FeaturesPage';
 import SecurityPage from './pages/SecurityPage';
 import RoadmapPage from './pages/RoadmapPage';
 import BlogPage from './pages/BlogPage';
+import BlogPostPage from './pages/BlogPostPage';
 import CareersPage from './pages/CareersPage';
 import DocsPage from './pages/DocsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
@@ -89,6 +90,7 @@ function App() {
               <Route path="/security" element={<SecurityPage />} />
               <Route path="/roadmap" element={<RoadmapPage />} />
               <Route path="/blog" element={<BlogPage />} />
+              <Route path="/blog/:slug" element={<BlogPostPage />} />
               <Route path="/careers" element={<CareersPage />} />
               <Route path="/docs" element={<DocsPage />} />
               <Route path="/api-docs" element={<ApiDocsPage />} />
